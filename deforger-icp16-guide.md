@@ -1,172 +1,227 @@
-# DeForger: Project Guide for NEXTGEN AGENTS HACKATHON
+# DeForger: Decentralized Talent Marketplace for NEXTGEN AGENTS HACKATHON
 
-This document outlines the vision, features, user flow, and technical architecture for "DeForger," a decentralized talent marketplace.
+DeForger is a decentralized platform leveraging Fetch.ai autonomous agents and Internet Computer (ICP) for seamless talent discovery, team collaboration, project investment through tokenized Real World Assets (RWAs), and a custom account system for user authentication.
 
----
+## Project Vision & Unique Value Proposition
 
-## 1. Project Vision & Unique Value Proposition (UVP)
+**Vision**: To create a trustless, autonomous platform where entrepreneurs and skilled professionals can form teams, collaborate on innovative projects, and invest in opportunities seamlessly.
 
-* **Vision:** To create a trustless, autonomous platform where entrepreneurs and skilled professionals can form teams and collaborate on innovative projects seamlessly.
-* **Unique Value Proposition:** DeForger leverages autonomous AI agents (Fetch.ai) for proactive, 24/7 talent discovery, while using a decentralized backend (ICP) to ensure transparent, secure, and permanent records for all user profiles, team agreements, and project communications. It's an active, intelligent matchmaking and collaboration network.
+**Unique Value Proposition**: DeForger combines Fetch.ai's AI agents for proactive, 24/7 talent matchmaking with ICP's decentralized backend for transparent, secure, and immutable records of profiles, agreements, communications, tokenized shares, and user accounts. It’s an intelligent, active network for collaboration, investment, and user management.
 
----
+## Core Features
 
-## 2. Core Features
+1. **Custom Account System**: Users register with a username and password, securely stored as hashed credentials on the ICP canister, linked to their `UserProfile`.
+2. **Decentralized Identity & Profiles**: Secure, on-chain user profiles detailing skills, roles, and experience, tied to authenticated accounts.
+3. **Project & Team Creation**: Founders create detailed project listings with vision and required roles.
+4. **Autonomous Agent Deployment**: One-click deployment of `TalentAgent` and `ProjectAgent` to the Agentverse for automated matchmaking.
+5. **Automated Matchmaking**: Agents autonomously search and initiate contact with potential matches.
+6. **User-Initiated Applications**: Talent can browse and apply to projects; founders review and manage applications.
+7. **On-Chain Agreement Recording**: Matches (agent-driven or manual) are immutably recorded on ICP.
+8. **Integrated Team Chat**: Real-time, on-chain chat system for project team communication.
+9. **Rich Frontend Explorer & Dashboard**: Web interface for browsing, managing profiles, overseeing agents, handling applications, communicating, and managing accounts.
+10. **Project Tokenization & RWA Share Sales**: Founders tokenize projects as digital shares, enabling users to invest via ICP payments.
 
-1.  **Decentralized Identity & Profiles:** Secure, on-chain user profiles detailing skills, roles, and experience.
-2.  **Project & Team Creation:** Founders can create detailed project listings, outlining their vision and required roles.
-3.  **Autonomous Agent Deployment:** "One-click" deployment of `TalentAgent` and `ProjectAgent` to the Agentverse for automated matchmaking.
-4.  **Automated Matchmaking:** Agents autonomously search, discover, and initiate contact with potential matches.
-5.  **User-Initiated Applications:** Talent can manually browse and apply to projects they find interesting. Project owners can review and manage these applications.
-6.  **On-Chain Agreement Recording:** All successful matches, whether from agents or manual applications, are recorded immutably on the ICP canister.
-7.  **Integrated Team Chat:** A real-time, on-chain chat system for each project, allowing seamless communication between team members.
-8.  **Rich Frontend Explorer & Dashboard:** A complete web interface to browse, manage profiles, oversee agent activity, handle applications, and communicate with teams.
+## Business Process & User Flow
 
----
+### Flow A: Account Creation & Authentication
+1. **Registration**: Alex visits `/register`, enters a username, password, and profile details (name, role, skills, portfolio URL), calling `register`.
+2. **Login**: Alex visits `/login`, enters credentials, calling `login`. On success, a session token is returned and stored in the browser.
+3. **Profile Access**: Authenticated users access their dashboard, where they can update profiles or change passwords via `changePassword`.
 
-## 3. Business Process & User Flow
+### Flow B: Automated Agent-Driven Matchmaking
+1. Alex (Talent) and Maria (Founder), after logging in, deploy their `TalentAgent` and `ProjectAgent`.
+2. Agents discover each other on the Agentverse.
+3. After protocol exchange, an agent calls `recordAgentMatch` (authenticated via session token or principal).
+4. Alex is added to the project’s team roster.
 
-### Flow A: Automated Agent-Driven Matchmaking
+### Flow C: Manual User-Initiated Application
+1. **Discovery**: Alex browses `/projects` and finds Maria’s project.
+2. **Application**: Alex clicks "Apply to Join," submits a message, calling `applyToProject` (authenticated).
+3. **Notification & Review**: Maria sees the application in her dashboard’s "Project Management" section.
+4. **Decision**: Maria accepts, calling `reviewApplication` (authenticated).
+5. **On-Chain Update**: The canister adds Alex to the team and marks the application as accepted.
 
-1.  Alex (Talent) and Maria (Founder) deploy their respective agents.
-2.  The agents discover each other on the Agentverse.
-3.  After a successful protocol exchange, one agent calls `recordAgentMatch` on the canister.
-4.  Alex is automatically added to the project's team roster.
+### Flow D: Team Communication
+1. **Access**: Alex, now a team member, accesses the project’s "Team Chat" tab.
+2. **Communication**: Alex sends a message via `sendMessage` (authenticated).
+3. **Real-time Update**: The frontend polls `getProjectMessages` to update the chat for all team members.
 
-### Flow B: Manual User-Initiated Application
+### Flow E: Project Tokenization & Investing (RWA Share Sales)
+1. **Tokenization**: Maria clicks "Tokenize Project" in the dashboard, sets share supply and price, calling `tokenizeProject` (authenticated).
+2. **Discovery**: Alex sees tokenized project details (supply, price) on `/projects` or project page.
+3. **Purchase**: Alex clicks "Buy Shares," transfers ICP to the project’s subaccount, and calls `buyShares` (authenticated).
+4. **On-Chain Update**: The canister verifies payment, updates Alex’s share balance, and reduces available shares.
+5. **Withdrawal**: Maria withdraws accumulated ICP via `withdrawProjectFunds` (authenticated).
 
-1.  **Discovery:** Alex browses the `/projects` page and finds Maria's project appealing.
-2.  **Application:** Alex clicks the "Apply to Join" button, fills out a short message, and submits. This calls the `applyToProject` canister method.
-3.  **Notification & Review:** Maria sees a new notification in her dashboard's "Project Management" section. She can view Alex's profile and application message.
-4.  **Decision:** Maria clicks "Accept." This calls the `reviewApplication` method on the canister.
-5.  **On-Chain Update:** The canister validates the request, adds Alex to the project's `team` array, and marks the application as accepted. Alex is now an official team member.
+**Note**: Payments use ICP ledger transfers to project subaccounts. Shares are managed as simple balances per project (not full ICRC-1 for prototype simplicity). All canister interactions require authentication via session token or principal.
 
-### Flow C: Team Communication
+## Technical Architecture
 
-1.  **Access:** Now a team member, Alex navigates to the project's page, which now has a "Team Chat" tab.
-2.  **Communication:** Alex types a message ("Excited to be here! What's the first priority?") and sends it. This calls the `sendMessage` canister method.
-3.  **Real-time Update:** The frontend, which is polling the `getProjectMessages` method, updates the chat window for all team members to see Alex's message.
+### Frontend (Component-Based Architecture)
 
----
+#### Core Pages & Routes
+- **`/`: Home Page** (`Navbar`, `HeroSection`, `FeaturesGrid`, `HowItWorks`, `Footer`)
+- **`/login`: Login Page** (`Navbar`, `LoginForm`, `Footer`)
+- **`/register`: Registration Page** (`Navbar`, `RegisterForm`, `Footer`)
+- **`/projects`: Project Explorer** (`Navbar`, `SearchAndFilterBar`, `ProjectGrid` with `ProjectCard` showing tokenization status, `Pagination`, `Footer`)
+- **`/projects/:id`: Project Detail Page**
+  - Components: `Navbar`, `ProjectHeader`, `ProjectDescription`, `OpenRolesPanel`, `TeamMembersGrid`, `ApplyButton` (if not a member), `ProjectTabs` (`Description`, `Team Chat`, `Invest`), `TokenInfoPanel` (share details), `BuySharesButton`, `Footer`
+  - `Team Chat` tab: `ChatWindow` (visible to team members)
+  - `Invest` tab: Share purchase interface and shareholder list
+- **`/talent`: Talent Explorer** (`Navbar`, `SearchAndFilterBar`, `TalentGrid` with `ProfileCard`, `Pagination`, `Footer`)
+- **`/dashboard`: User Dashboard (Requires Auth)**
+  - Components: `Navbar`, `DashboardSidebar`, `AgentStatusPanel`, `MyProjectsPanel`, `MyTeamsPanel`, `ProfileEditor`, `ChatInterface`, `MyInvestmentsPanel` (lists invested projects), `AccountManagementPanel` (change password), `Footer`
+  - `MyProjectsPanel` (Founders): Lists owned projects, with `ApplicationsViewer` (`ApplicationCard`) and `TokenManagementSection` for tokenization and fund withdrawal
+  - `ChatInterface`: Centralized view of all team chats
+  - `AccountManagementPanel`: Interface for updating password or account settings
 
-## 4. Technical Architecture
+#### Reusable Components
+- `LoginForm`: Username and password inputs, submits to `login`.
+- `RegisterForm`: Username, password, and profile fields, submits to `register`.
+- `ApplyButton`: Opens `Modal` for application message.
+- `ApplicationCard`: Shows applicant profile and message, with "Accept"/"Decline" buttons.
+- `ChatWindow`: Contains `MessageList` and `MessageInput`.
+- `MessageList`: Renders `Message` components.
+- `MessageInput`: Text input and send button for chat.
+- `BuySharesModal`: Handles share purchase flow (ICP transfer + canister call).
+- `TokenInfo`: Displays share supply, price, and balances.
+- `AccountManagementPanel`: Form for changing password or updating account details.
 
-### 4.1. Frontend (Component-Based Architecture)
+**Frontend Notes**: Session tokens are stored in browser session storage and included in canister calls for authentication. All routes requiring auth (e.g., `/dashboard`) check for valid tokens.
 
-#### Core Pages & Routes:
+### Backend Canister (Motoko)
 
-* **`/` (Home Page):** `Navbar`, `HeroSection`, `FeaturesGrid`, `HowItWorks`, `Footer`.
-* **`/projects` (Project Explorer):** `Navbar`, `SearchAndFilterBar`, `ProjectGrid` (`ProjectCard` components), `Pagination`, `Footer`.
-* **`/projects/:id` (Project Detail Page):**
-    * **Components:** `Navbar`, `ProjectHeader`, `ProjectDescription`, `OpenRolesPanel`, `TeamMembersGrid`, `ApplyButton` (visible if not a member), `ProjectTabs` (`Description`, `Team Chat`), `Footer`.
-    * The `Team Chat` tab will contain the `ChatWindow` component, visible only to team members.
-* **`/talent` (Talent Explorer):** `Navbar`, `SearchAndFilterBar`, `TalentGrid` (`ProfileCard` components), `Pagination`, `Footer`.
-* **`/dashboard` (User Dashboard - *Requires Auth*):**
-    * **Components:** `Navbar`, `DashboardSidebar`, `AgentStatusPanel`, `MyProjectsPanel`, `MyTeamsPanel`, `ProfileEditor`, `ChatInterface`, `Footer`.
-    * **`MyProjectsPanel` (for Founders):** Lists projects the user owns. Each project entry has an `ApplicationsViewer` to see and act on pending applications (`ApplicationCard` components).
-    * **`ChatInterface`**: A centralized view of all team chats for projects the user has joined.
+#### Data Schema
+1. **UserProfile**
+   - `id: Principal` (canister-derived or wallet-provided principal)
+   - `username: Text` (unique username for login)
+   - `passwordHash: Text` (SHA-256 hashed password)
+   - `name: Text` (full name/alias)
+   - `role: Text` (professional title)
+   - `skills: [Text]` (professional skills)
+   - `portfolioUrl: Text` (external portfolio link)
 
-#### Reusable Components:
+2. **Session**
+   - `userId: Principal` (linked user)
+   - `token: Text` (random session token, e.g., UUID)
+   - `expires: Time.Time` (expiration timestamp, e.g., 24 hours from creation)
 
-* **`ApplyButton`**: Triggers a `Modal` with a text area for an application message.
-* **`ApplicationCard`**: Displays an applicant's profile summary and message, with "Accept" and "Decline" buttons.
-* **`ChatWindow`**: The main chat interface, containing `MessageList` and `MessageInput`.
-* **`MessageList`**: Renders a list of `Message` components.
-* **`MessageInput`**: A text input field and send button for submitting new chat messages.
+3. **Project**
+   - `id: Nat` (unique identifier)
+   - `owner: Principal` (creator)
+   - `name: Text` (project name)
+   - `vision: Text` (description)
+   - `team: [Principal]` (team members)
+   - `openRoles: [RoleRequirement]` (open positions)
+   - `applications: [Application]` (pending/past applications)
+   - `isTokenized: Bool` (tokenization status)
+   - `totalShares: Nat` (total share supply)
+   - `availableShares: Nat` (remaining shares)
+   - `pricePerShare: Nat` (price in ICP e8s)
+   - `shareBalances: [(Principal, Nat)]` (shareholder balances)
 
-### 4.2. Backend Canister (Motoko)
+4. **RoleRequirement**
+   - `roleName: Text` (position title)
+   - `requiredSkills: [Text]` (needed skills)
 
-#### Data Schema Definition
+5. **AgentMatch**
+   - `matchId: Nat` (unique identifier)
+   - `projectId: Nat` (project)
+   - `userId: Principal` (matched user)
+   - `roleFilled: Text` (role)
+   - `timestamp: Time.Time` (match time)
 
-**1. `UserProfile`**
-| Field | Type | Description |
-| :--- | :--- | :--- |
-| `id` | `Principal` | The user's unique Internet Identity principal. |
-| `name` | `Text` | The user's full name or chosen alias. |
-| `role` | `Text` | The user's primary professional title. |
-| `skills` | `[Text]` | An array of the user's professional skills. |
-| `portfolioUrl`| `Text` | A URL to an external portfolio, GitHub, etc. |
+6. **Application**
+   - `id: Nat` (unique identifier)
+   - `applicant: Principal` (applicant)
+   - `projectId: Nat` (project)
+   - `message: Text` (cover letter)
+   - `status: ApplicationStatus` (`#pending`, `#accepted`, `#rejected`)
 
-**2. `Project`**
-| Field | Type | Description |
-| :--- | :--- | :--- |
-| `id` | `Nat` | Unique project identifier. |
-| `owner` | `Principal`| Principal of the project creator. |
-| `name` | `Text` | Project name. |
-| `vision` | `Text` | Project description. |
-| `team` | `[Principal]`| List of official team members. |
-| `openRoles`| `[RoleRequirement]` | Open positions. |
-| `applications`| `[Application]` | List of pending and past applications. |
+7. **ApplicationStatus (Variant)**
+   ```motoko
+   public type ApplicationStatus = { #pending; #accepted; #rejected; };
+   ```
 
-**3. `RoleRequirement`**
-| Field | Type | Description |
-| :--- | :--- | :--- |
-| `roleName` | `Text` | The title of the open position. |
-| `requiredSkills`| `[Text]` | An array of specific skills needed for this role. |
+8. **ChatMessage**
+   - `id: Nat` (unique identifier)
+   - `projectId: Nat` (project chat)
+   - `sender: Principal` (message author)
+   - `content: Text` (message text)
+   - `timestamp: Time.Time` (sent time)
 
-**4. `AgentMatch`** (Formerly `Match`)
-| Field | Type | Description |
-| :--- | :--- | :--- |
-| `matchId` | `Nat` | Unique match identifier. |
-| `projectId` | `Nat` | Project involved in the match. |
-| `userId` | `Principal`| User matched to the project. |
-| `roleFilled`| `Text` | Role the user filled. |
-| `timestamp` | `Time.Time`| Timestamp of the match. |
+**Account System Notes**: 
+- Passwords are hashed using SHA-256 (Motoko’s `Hash` module). For production, add salting.
+- Sessions are stored in a HashMap, validated per request, and expire after 24 hours.
+- `UserProfile` links usernames to principals for authentication.
 
-**5. `Application`**
-| Field | Type | Description |
-| :--- | :--- | :--- |
-| `id` | `Nat` | Unique application identifier. |
-| `applicant` | `Principal` | The principal of the user applying. |
-| `projectId` | `Nat` | The ID of the project being applied to. |
-| `message` | `Text` | The cover letter or message from the applicant. |
-| `status` | `ApplicationStatus` | The current status: `#pending`, `#accepted`, or `#rejected`. |
-
-**6. `ApplicationStatus` (Variant Type)**
-`public type ApplicationStatus = { #pending; #accepted; #rejected; };`
-
-**7. `ChatMessage`**
-| Field | Type | Description |
-| :--- | :--- | :--- |
-| `id` | `Nat` | Unique message identifier. |
-| `projectId` | `Nat` | The project chat this message belongs to. |
-| `sender` | `Principal` | The principal of the message author. |
-| `content` | `Text` | The text content of the message. |
-| `timestamp` | `Time.Time` | Timestamp of when the message was sent. |
+**RWA Note**: Shares are managed as balances within `Project`. For production, use per-project ICRC-1 token canisters. Payments use ICP ledger; subaccounts are derived from project IDs.
 
 #### Public Methods (Actor)
-
 ```motoko
 actor DeForger {
-  // --- STATE (omitted for brevity) ---
-  // Includes HashMaps for users, projects, agentMatches, applications, messages, and counters.
+  // State: HashMaps for users, sessions, projects, agentMatches, applications, messages, counters; ICP ledger integration
 
-  // --- PROFILE & PROJECT METHODS ---
-  public shared func updateUserProfile(name: Text, role: Text, skills: [Text], portfolioUrl: Text): async Bool;
-  public shared func createProject(name: Text, vision: Text, openRoles: [RoleRequirement]): async Nat;
+  // Account Management
+  public shared func register(username: Text, password: Text, name: Text, role: Text, skills: [Text], portfolioUrl: Text): async Bool; // Creates account, hashes password, links to UserProfile
+  public shared func login(username: Text, password: Text): async ?Text; // Returns session token if credentials valid
+  public shared func changePassword(token: Text, newPassword: Text): async Bool; // Updates password for authenticated user
 
-  // --- AGENT-DRIVEN MATCHING METHOD ---
-  public shared func recordAgentMatch(projectId: Nat, userId: Principal, roleFilled: Text): async Bool;
+  // Profile & Project Methods
+  public shared ({caller}) func updateUserProfile(token: Text, name: Text, role: Text, skills: [Text], portfolioUrl: Text): async Bool; // Requires valid token
+  public shared ({caller}) func createProject(token: Text, name: Text, vision: Text, openRoles: [RoleRequirement]): async Nat; // Requires valid token
 
-  // --- USER-INITIATED APPLICATION METHODS ---
-  public shared func applyToProject(projectId: Nat, message: Text): async Bool;
-  public shared func reviewApplication(applicationId: Nat, accept: Bool): async Bool;
+  // Agent-Driven Matching
+  public shared ({caller}) func recordAgentMatch(token: Text, projectId: Nat, userId: Principal, roleFilled: Text): async Bool; // Requires valid token
 
-  // --- TEAM CHAT METHODS ---
-  public shared func sendMessage(projectId: Nat, content: Text): async Bool;
+  // User-Initiated Applications
+  public shared ({caller}) func applyToProject(token: Text, projectId: Nat, message: Text): async Bool; // Requires valid token
+  public shared ({caller}) func reviewApplication(token: Text, applicationId: Nat, accept: Bool): async Bool; // Requires valid token
 
-  // --- READ-ONLY METHODS ---
+  // Team Chat
+  public shared ({caller}) func sendMessage(token: Text, projectId: Nat, content: Text): async Bool; // Requires valid token
+
+  // RWA Tokenization & Share Sales
+  public shared ({caller}) func tokenizeProject(token: Text, projectId: Nat, totalShares: Nat, pricePerShare: Nat): async Bool; // Owner-only; initializes shares
+  public shared ({caller}) func buyShares(token: Text, projectId: Nat, numShares: Nat): async Bool; // Verifies ICP transfer, allocates shares
+  public shared ({caller}) func withdrawProjectFunds(token: Text, projectId: Nat): async Bool; // Owner-only; transfers ICP to owner
+
+  // Read-Only Queries
   public query func getUserProfile(userId: Principal): async ?UserProfile;
   public query func getProject(projectId: Nat): async ?Project;
   public query func getAllProjects(): async [Project];
   public query func getProjectMessages(projectId: Nat): async [ChatMessage];
   public query func getAllAgentMatches(): async [AgentMatch];
+  public query func getProjectShareBalance(projectId: Nat, userId: Principal): async Nat;
 }
 ```
 
-### 4.3. AI Agents (Fetch.ai uAgent)
-- TalentAgent: Represents a user, tasked with finding projects that need their skills. Logic remains focused on discovery and calling recordAgentMatch.
+**RWA Technical Notes**:
+- **ICP Ledger Integration**: Import Candid interface for balance queries and transfers.
+- **Subaccounts**: Derive per-project subaccounts using project ID.
+- **buyShares**: Verifies ICP transfer to subaccount (price * numShares), updates balances, reduces available shares.
+- **withdrawProjectFunds**: Transfers ICP from subaccount to owner’s principal.
+- **Simplification**: Uses balance system for shares; production should use ICRC-1/2 standards.
 
-- ProjectAgent: Represents a project, tasked with finding talent to fill open roles. Logic remains focused on discovery and calling recordAgentMatch.
+**Authentication Notes**:
+- All shared methods (except `register`, `login`) require a valid session `token` passed in the call, verified against the `Sessions` HashMap.
+- `caller` principal is checked for ownership-sensitive actions (e.g., `withdrawProjectFunds`).
+- For simplicity, principals can be canister-generated (e.g., based on username hash) or linked to a user’s wallet.
 
-- Communication Protocol: A simple JSON-based messaging format for agents to exchange information (e.g., query_project_details, propose_match).
+### AI Agents (Fetch.ai uAgent)
+- **TalentAgent**: Finds projects matching user skills, calls `recordAgentMatch` with authenticated token.
+- **ProjectAgent**: Finds talent for open roles, calls `recordAgentMatch` with authenticated token.
+- **Communication Protocol**: JSON-based messaging (e.g., `query_project_details`, `propose_match`), includes session token for canister calls.
+- **Future Extension**: Add `InvestorAgent` for discovering tokenized projects and proposing investments.
+
+## Getting Started
+1. **Deploy Canister**: Deploy the Motoko canister on ICP with ledger integration.
+2. **Deploy Agents**: Use Fetch.ai Agentverse to deploy `TalentAgent` and `ProjectAgent`.
+3. **Frontend Setup**: Host the React-based frontend (with Tailwind CSS), connect to canister and Agentverse, and implement session token handling.
+4. **Test Flows**: Test account creation, login, matchmaking, applications, chat, share purchases, and fund withdrawals via the frontend.
+
+## Future Enhancements
+- Full ICRC-1/2 token implementation for project shares.
+- Enhanced agent logic for investment discovery.
+- Advanced security: Salting for password hashing, JWT-like session tokens, and robust payment verification.
+- Support for wallet-based principal generation for broader compatibility.

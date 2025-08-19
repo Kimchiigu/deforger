@@ -1,0 +1,93 @@
+service : {
+  // HTTP endpoints (handled by Express)
+  "getUserProfile" : (record { userId : text }) -> (opt record {
+    id : text;
+    username : text;
+    name : text;
+    role : text;
+    skills : vec text;
+    portfolioUrl : text;
+    walletPrincipal : opt text;
+  }) query;
+  "getProject" : (record { projectId : text }) -> (opt record {
+    id : nat64;
+    owner : text;
+    name : text;
+    vision : text;
+    team : vec text;
+    openRoles : vec record { roleName : text; requiredSkills : vec text };
+    applications : vec record { id : nat64; applicant : text; projectId : nat64; message : text; status : text };
+    messages : vec record { id : nat64; projectId : nat64; sender : text; content : text; timestamp : nat64 };
+    isTokenized : bool;
+    totalShares : nat64;
+    availableShares : nat64;
+    pricePerShare : nat64;
+    shareBalances : vec record { text; nat64 };
+  }) query;
+  "getAllProjects" : () -> (vec record {
+    id : nat64;
+    owner : text;
+    name : text;
+    vision : text;
+    team : vec text;
+    openRoles : vec record { roleName : text; requiredSkills : vec text };
+    applications : vec record { id : nat64; applicant : text; projectId : nat64; message : text; status : text };
+    messages : vec record { id : nat64; projectId : nat64; sender : text; content : text; timestamp : nat64 };
+    isTokenized : bool;
+    totalShares : nat64;
+    availableShares : nat64;
+    pricePerShare : nat64;
+    shareBalances : vec record { text; nat64 };
+  }) query;
+  "getProjectMessages" : (record { projectId : text }) -> (vec record {
+    id : nat64;
+    projectId : nat64;
+    sender : text;
+    content : text;
+    timestamp : nat64;
+  }) query;
+  "getAllAgentMatches" : () -> (vec record {
+    matchId : nat64;
+    projectId : nat64;
+    userId : text;
+    roleFilled : text;
+    timestamp : nat64;
+  }) query;
+  "getProjectShareBalance" : (record { projectId : text; userId : text }) -> (text) query;
+  "register" : (record {
+    username : text;
+    password : text;
+    name : text;
+    role : text;
+    skills : vec text;
+    portfolioUrl : text;
+    walletPrincipal : opt text;
+  }) -> (bool);
+  "login" : (record { username : text; password : text }) -> (opt text);
+  "changePassword" : (record { token : text; newPassword : text }) -> (bool);
+  "updateUserProfile" : (record {
+    token : text;
+    name : opt text;
+    role : opt text;
+    skills : opt vec text;
+    portfolioUrl : opt text;
+  }) -> (bool);
+  "createProject" : (record {
+    token : text;
+    name : text;
+    vision : text;
+    openRoles : vec record { roleName : text; requiredSkills : vec text };
+  }) -> (text);
+  "recordAgentMatch" : (record {
+    token : text;
+    projectId : text;
+    userId : text;
+    roleFilled : text;
+  }) -> (bool);
+  "applyToProject" : (record { token : text; projectId : text; message : text }) -> (bool);
+  "reviewApplication" : (record { token : text; applicationId : text; accept : bool }) -> (bool);
+  "sendMessage" : (record { token : text; projectId : text; content : text }) -> (bool);
+  "tokenizeProject" : (record { token : text; projectId : text; totalShares : nat64; pricePerShare : nat64 }) -> (bool);
+  "buyShares" : (record { token : text; projectId : text; numShares : nat64 }) -> (bool);
+  "withdrawProjectFunds" : (record { token : text; projectId : text }) -> (bool);
+}
