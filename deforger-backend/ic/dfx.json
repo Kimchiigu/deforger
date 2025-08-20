@@ -1,35 +1,16 @@
 {
   "canisters": {
-    "deforger_backend": {
-      "type": "custom",
-      "package": "deforger_backend",
-      "build": "npm run build:azle",
-      "root": "src/backend",
-      "ts": "src/backend/index.ts",
-      "candid": "src/backend/deforger_backend.did",
-      "wasm": "target/wasm32-unknown-unknown/release/deforger_backend.wasm",
-      "dependencies": ["icp_ledger_canister"]
-    },
-    "icp_ledger_canister": {
-      "type": "custom",
-      "candid": "https://raw.githubusercontent.com/dfinity/ic/ec35ebd252d4ffb151d2cfceba3a86c4fb87c6d6/rs/rosetta-api/icp_ledger/ledger.did",
-      "wasm": "https://download.dfinity.systems/ic/ec35ebd252d4ffb151d2cfceba3a86c4fb87c6d6/canisters/ledger-canister.wasm.gz",
-      "remote": {
-        "id": {
-          "ic": "ryjl3-tyaaa-aaaaa-aaaba-cai"
-        }
-      }
+    "backend": {
+      "main": "src/backend/main.mo",
+      "type": "motoko"
     }
   },
   "defaults": {
     "build": {
-      "packtool": "npm run build"
+      "args": "",
+      "packtool": "mops sources"
     }
   },
-  "networks": {
-    "local": {
-      "bind": "127.0.0.1:4943",
-      "type": "ephemeral"
-    }
-  }
+  "output_env_file": ".env",
+  "version": 1
 }

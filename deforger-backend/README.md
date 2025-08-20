@@ -15,8 +15,24 @@ fetch-icp-integration/
             └── index.ts     # Dummy Bitcoin HTTP server
 ```
 
-## Code Template for Visual Code
-[Motoko Template](https://github.com/ICP-HUBS-DevRels-Syndicate/fetch-icp-motoko)
+## Template and Codespace for Development
+
+This project is set up as a **GitHub template** repository for easy development using **GitHub Codespaces**. To get started:
+
+1. **Create your own repository**: Click the green **"Use this template"** button at the top of this repository page. This will create a new repository under your GitHub profile or organization with all the project files.
+
+2. **Launch Codespace**: Once your repository is created, click the green **"Code"** dropdown button and select the **"Codespaces"** tab. Then click **"Create codespace on main"** to start a new development environment.
+
+3. **Wait for setup**: The Codespace will automatically build and configure the development environment. This may take a few minutes as it installs all necessary dependencies and tools.
+
+### Development Environment Configuration
+
+The development environment is configured through two key files:
+
+- **`.devcontainer/devcontainer.json`**: Defines the Codespace configuration including the base image, extensions, and port forwarding settings
+- **`scripts/devcontainer-setup.sh`**: Contains the setup script that installs dependencies like DFX (DFINITY SDK), Node.js packages, and Python requirements
+
+You can examine these files to understand how the environment is configured or to customize it for your specific needs.
 
 ## ICP Component
 
@@ -26,10 +42,13 @@ The ICP component (`ic/src/backend/index.ts`) implements a dummy HTTP server wit
 - `/get-utxos` - Returns dummy UTXOs for a Bitcoin address
 - `/get-current-fee-percentiles` - Returns dummy fee percentiles
 - `/get-p2pkh-address` - Returns a dummy P2PKH address
-- `/send` - Simulates sending Bitcoin to an address
-- `/dummy-test` - Test endpoint for basic connectivity
 
 Note: This is a dummy implementation that returns mock data. The actual implementation needs to be amended.
+
+You can call from the command line:
+
+- curl http://[canisterId].localhost:4943/
+- curl -X POST -H "Content-Type: application/json" -d "{ \"address\": \"[BTC Address]\" }" http://[canisterId].localhost:4943/get-balance
 
 ---
 
@@ -40,10 +59,10 @@ To set up and run the ICP canister locally, follow these steps:
 1. **Click "Use Template" and create your own repository**
 
 2. **Open project as a VS Code Codespace**
-3. **Start up a local ICP replica:**
+3. **Start up a local ICP replica with BTC Node:**
 
    ```bash
-   dfx start
+   dfx start --clean --enable-bitcoin --bitcoin-node 127.0.0.1:18444
    ```
 
 4. **In a separate terminal, deploy your canister:**
@@ -54,7 +73,7 @@ To set up and run the ICP canister locally, follow these steps:
    ```
 
 5. **In the browser, open and interact with HTTP Server:**
-   - URL: http://{canister backend id}.raw.localhost:4943/ (see id from deploy message)
+   - URL: http://{canister backend id}.localhost:4943/ (see id from deploy message)
 
 ---
 
@@ -89,7 +108,7 @@ To use the agent, you need an ASI:One API Key. Follow these steps:
    ```python
    ASI1_API_KEY = "YOUR_ASI1_API_KEY"  # Replace with your ASI1 key
    ```
-8. Copy the cannister ID after deploying and replace the cannister ID in the `agent.py` file. 
+8. Copy the cannister ID after deploying and replace the cannister ID in the `agent.py` file.
 
    ```bash
    Deployed canisters.
@@ -102,13 +121,22 @@ To use the agent, you need an ASI:One API Key. Follow these steps:
    CANISTER_ID = "uzt4z-lp777-77774-qaabq-cai"
    BASE_URL = "http://127.0.0.1:4943"
    ```
-9. 
+
+9.
+
 ### Running the Agent
 
 1. In a separate terminal, start the agent:
 
 ```bash
-python3 agent.py
+cd fetch
+./venv/bin/python agent.py
+```
+
+or through npm
+
+```bash
+npm run agent
 ```
 
 2. The agent will start and display its address and inspector URL:
@@ -126,7 +154,6 @@ INFO: [test-ICP-agent]: Agent inspector available at https://agentverse.ai/inspe
 ![Mailbox done](./fetch/images/mailbox-done.png)
 
 4. Test the agent using the Chat interface with queries like:
-
    - Once connected, click on Agent Profile
      ![Agent Profile](./fetch/images/agent-profile.png)
 
@@ -137,7 +164,7 @@ INFO: [test-ICP-agent]: Agent inspector available at https://agentverse.ai/inspe
      ![Type Query](./fetch/images/chat-ui.png)
 
    - Query through ASI:One
-      ![Type Query](./fetch/images/asi1.png)
+     ![Type Query](./fetch/images/asi1.png)
 
 ## Example Queries
 
@@ -145,20 +172,89 @@ The agent supports various types of queries:
 
 ### Balance Queries
 
-- What's the balance of address tb1qexample1234567890?
-- Can you check how many bitcoins are in tb1qabcde000001234567?
+- What's the balance of address bc1q8sxznvhualuyyes0ded7kgt33876phpjhp29rs?
+- Can you check how many bitcoins are in bc1q8sxznvhualuyyes0ded7kgt33876phpjhp29rs?
 
 ### UTXO Queries
 
-- What UTXOs are available for address tb1qexampleutxo0001?
-- List unspent outputs for tb1qunspentoutputs111
+- What UTXOs are available for address bc1q8sxznvhualuyyes0ded7kgt33876phpjhp29rs?
+- List unspent outputs for bc1q8sxznvhualuyyes0ded7kgt33876phpjhp29rs
 
 ### Fee Queries
 
 - What are the current Bitcoin fee percentiles?
 - Show me the latest fee percentile distribution
 
-### Transaction Queries
+## 🚀 Deploying and Optimizing Your Agent
 
-- Send 10,000 satoshis to tb1qreceiver000111
-- Transfer 50000 sats to tb1qsimplewalletabc
+### Publishing to Agentverse
+
+Once your agent is running successfully, you'll want to make it discoverable on the Agentverse platform. This increases its visibility and allows other users to interact with your Bitcoin service agent.
+
+#### Step 1: Access Agentverse
+
+1. Navigate to [https://agentverse.ai/agents](https://agentverse.ai/agents)
+2. Locate your agent in the agent list (it should appear automatically if running with mailbox connection)
+
+#### Step 2: Enhance Your Agent Profile
+
+To maximize discoverability, update the following elements:
+
+- **Agent Name**: Choose a descriptive name that clearly indicates its Bitcoin functionality
+- **Description**: Write a compelling summary of your agent's capabilities
+- **README**: Use the template provided below for a complete documentation
+- **Tags**: Add relevant tags like `bitcoin`, `crypto`, `balance`, `icp`, `defi`
+- **Avatar**: Upload a professional avatar or logo that represents your service
+
+### Example Agent README Template
+
+Here's a ready-to-use template for your agent's README on Agentverse. Simply copy and paste this entire section:
+
+```markdown
+# Bitcoin Testnet Balance Agent
+
+![tag:innovationlab](https://img.shields.io/badge/innovationlab-3D8BD3)
+![tag:internetcomputer](https://img.shields.io/badge/internetcomputer-9370DB)
+![tag:bitcoin](https://img.shields.io/badge/bitcoin-FF6C49)
+![tag:chatprotocol](https://img.shields.io/badge/chatprotocol-3D8BD3)
+
+An AI-powered agent that can check the wallet balances for a given address on Bitcoin(BTC) testnet using natural language queries. It is built using the uAgents framework and integrated with Internet Computer for secure Bitcoin operations. It also provides dummy responses for other Bitcoin blockchain services through natural language queries
+
+## Features
+
+- **Balance Checking**: Query Bitcoin address balances in real-time (BTC Testnet)
+- **UTXO Analysis**: Get detailed unspent transaction outputs for any address (Dummy Response)
+- **Fee Monitoring**: Access current Bitcoin network fee percentiles (Dummy Response)
+- **Natural Language**: Understands conversational Bitcoin queries
+- **ICP Integration**: Secure operations through Internet Computer Protocol
+- **Real-time Data**: Live blockchain data and network information
+
+## Usage Examples
+
+### Balance Queries (BTC Testnet)
+
+- "What's the balance of address bc1q8sxznvhualuyyes0ded7kgt33876phpjhp29rs?"
+- "Can you check how many bitcoins are in bc1q8sxznvhualuyyes0ded7kgt33876phpjhp29rs?"
+- "Show me the balance of this Bitcoin wallet: bc1q8sxznvhualuyyes0ded7kgt33876phpjhp29rs"
+
+### UTXO Queries
+
+- "What UTXOs are available for address bc1q8sxznvhualuyyes0ded7kgt33876phpjhp29rs?"
+- "List unspent outputs for bc1q8sxznvhualuyyes0ded7kgt33876phpjhp29rs"
+- "Do I have any unspent transactions for bc1q8sxznvhualuyyes0ded7kgt33876phpjhp29rs?"
+
+### Fee Queries
+
+- "What are the current Bitcoin fee percentiles?"
+- "Show me the latest fee percentile distribution"
+- "How much are the Bitcoin network fees right now?"
+
+## Technical Details
+
+- **Framework**: uAgents
+- **LLM Integration**: ASI1 AI
+- **Blockchain**: Bitcoin
+- **Protocol**: Internet Computer Protocol (ICP)
+
+**Powered by Fetch.ai and Internet Computer | Built for Agentverse**
+```

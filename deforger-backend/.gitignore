@@ -20,8 +20,6 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-.env
-venv/
 .python-version
 
 # Node
@@ -33,6 +31,9 @@ yarn-error.log*
 .pnpm-debug.log*
 .npm
 .yarn-integrity
+
+# Agent keys
+private_keys.json
 
 # Build and dependency directories
 .dfx/
@@ -111,3 +112,25 @@ env/
 .tmp/
 temp/
 tmp/ 
+
+# Various IDEs and Editors
+.idea/
+**/*~
+
+# Mac OSX temporary files
+.DS_Store
+**/.DS_Store
+
+# dfx temporary files
+.dfx/
+
+# generated files
+**/declarations/
+.mops/
+
+# frontend code
+node_modules/
+dist/
+
+# environment variables
+.env
