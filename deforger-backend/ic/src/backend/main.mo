@@ -22,20 +22,16 @@ import Types "./Types";
 
 actor DeForger {
   // Custom hashing functions to resolve dependency conflicts
-  // The HashMap requires a function that returns a `Hash` type, which is an alias for `Nat32`.
   private func customPrincipalHash(p : Principal) : Nat32 {
     let blob = Principal.toBlob(p);
     var hash : Nat = 0;
     for (byte in blob.vals()) {
-      // Explicitly convert Nat8 to Nat for the arithmetic operation.
       hash := (hash * 31 + Nat8.toNat(byte)) % 1_000_000_007;
     };
-    // Use Nat32.fromNat() for the conversion.
     return Nat32.fromNat(hash);
   };
 
   private func customNatHash(n : Nat) : Nat32 {
-    // Use Nat32.fromNat() for the conversion.
     return Nat32.fromNat(n);
   };
 
@@ -67,7 +63,6 @@ actor DeForger {
     };
   };
 
-  // Helper to encode a Blob to a hex Text
   private func blobToHex(blob : Blob) : Text {
     var hexText = "";
     for (byte in blob.vals()) {
@@ -76,7 +71,7 @@ actor DeForger {
     return hexText;
   };
 
-  // Public methods (direct calls)
+  // Public methods
   public shared (msg) func register(username : Text, password : Text, name : Text, role : Text, skills : [Text], portfolioUrl : Text) : async Bool {
     if (users.get(username) != null) { return false };
     let salt = Text.encodeUtf8(username);
@@ -84,7 +79,7 @@ actor DeForger {
     let saltedPassword = Blob.fromArray(Array.append(Blob.toArray(salt), Blob.toArray(passBlob)));
     let hashBlob = Sha256.fromBlob(#sha256, saltedPassword);
     let hash = blobToHex(hashBlob);
-    let userId = msg.caller; // Use the caller's principal
+    let userId = msg.caller;
     let profile : Types.UserProfile = {
       id = userId;
       username = username;
@@ -189,7 +184,6 @@ actor DeForger {
       case (null) { false };
       case (?caller) {
         let ?project = projects.get(projectId) else return false;
-        // Assume caller is authorized (agent with token)
         if (not Buffer.contains<Principal>(project.team, userId, Principal.equal)) {
           project.team.add(userId);
         };
@@ -207,7 +201,7 @@ actor DeForger {
         let match_ : Types.AgentMatch = {
           matchId = agentMatchCounter;
           projectId;
-          userId;
+          userId = Principal.toText(userId);
           roleFilled;
           timestamp = Time.now();
         };
@@ -218,22 +212,33 @@ actor DeForger {
   };
 
   public shared func applyToProject(token : Text, projectId : Nat, message : Text) : async Bool {
+    Debug.print("Validating token: " # token);
     switch (validateToken(token)) {
-      case (null) { false };
+      case (null) {
+        Debug.print("Token validation failed");
+        false;
+      };
       case (?applicant) {
-        let ?project = projects.get(projectId) else return false;
+        Debug.print("Applicant: " # Principal.toText(applicant));
+        let ?project = projects.get(projectId) else {
+          Debug.print("Project not found for ID: " # Nat.toText(projectId));
+          return false;
+        };
+        Debug.print("Project found, checking team membership");
         if (Buffer.contains<Principal>(project.team, applicant, Principal.equal)) {
+          Debug.print("Applicant already in team");
           return false;
         };
         applicationCounter += 1;
         let app : Types.Application = {
           id = applicationCounter;
-          applicant;
+          applicant = Principal.toText(applicant);
           projectId;
           message;
-          status = #pending;
+          status = "pending";
         };
         project.applications.add(app);
+        Debug.print("Application added successfully");
         true;
       };
     };
@@ -261,11 +266,11 @@ actor DeForger {
         if (not found) { return false };
         let ?app = appFound else return false;
         let ?proj = projects.get(app.projectId) else return false;
-        let status = if (accept) #accepted else #rejected;
+        let status = if (accept) "accepted" else "rejected";
         let updatedApp = { app with status = status };
         ignore do ? { proj.applications.put(index!, updatedApp) };
         if (accept) {
-          proj.team.add(app.applicant);
+          proj.team.add(Principal.fromText(app.applicant));
         };
         true;
       };
@@ -284,7 +289,7 @@ actor DeForger {
         let msg : Types.ChatMessage = {
           id = messageCounter;
           projectId;
-          sender;
+          sender = Principal.toText(sender);
           content;
           timestamp = Time.now();
         };
@@ -330,7 +335,6 @@ actor DeForger {
         if (not project.isTokenized or numShares > project.availableShares) {
           return false;
         };
-        // Ignoring ledger transfer check; assume payment handled externally
         let current = Option.get(project.shareBalances.get(buyer), 0);
         project.shareBalances.put(buyer, current + numShares);
         let updated = {
@@ -348,7 +352,6 @@ actor DeForger {
       case (?caller) {
         let ?project = projects.get(projectId) else return false;
         if (project.owner != caller) { return false };
-        // Ignoring ledger transfer; assume handled externally
         true;
       };
     };
@@ -359,7 +362,7 @@ actor DeForger {
     let ?username = idToUsername.get(userId) else return null;
     let ?profile = users.get(username) else return null;
     ?{
-      id = profile.id;
+      id = Principal.toText(profile.id);
       username = profile.username;
       name = profile.name;
       role = profile.role;
@@ -370,38 +373,66 @@ actor DeForger {
 
   private func getProjectInternal(projectId : Nat) : ?Types.PublicProject {
     let ?project = projects.get(projectId) else return null;
+    let shareBalancesText = Buffer.Buffer<(Text, Nat)>(project.shareBalances.size());
+    for ((principal, shares) in project.shareBalances.entries()) {
+      shareBalancesText.add((Principal.toText(principal), shares));
+    };
+    let applicationsText = Buffer.Buffer<Types.Application>(project.applications.size());
+    for (app in project.applications.vals()) {
+      applicationsText.add({
+        id = app.id;
+        applicant = app.applicant;
+        projectId = app.projectId;
+        message = app.message;
+        status = app.status;
+      });
+    };
     ?{
       id = project.id;
-      owner = project.owner;
+      owner = Principal.toText(project.owner);
       name = project.name;
       vision = project.vision;
-      team = Buffer.toArray(project.team);
+      team = Array.map<Principal, Text>(Buffer.toArray(project.team), Principal.toText);
       openRoles = Buffer.toArray(project.openRoles);
-      applications = Buffer.toArray(project.applications);
+      applications = Buffer.toArray(applicationsText);
       isTokenized = project.isTokenized;
       totalShares = project.totalShares;
       availableShares = project.availableShares;
       pricePerShare = project.pricePerShare;
-      shareBalances = Iter.toArray(project.shareBalances.entries());
+      shareBalances = Buffer.toArray(shareBalancesText);
     };
   };
 
   private func getAllProjectsInternal() : [Types.PublicProject] {
     let buf = Buffer.Buffer<Types.PublicProject>(projects.size());
     for (p in projects.vals()) {
+      let shareBalancesText = Buffer.Buffer<(Text, Nat)>(p.shareBalances.size());
+      for ((principal, shares) in p.shareBalances.entries()) {
+        shareBalancesText.add((Principal.toText(principal), shares));
+      };
+      let applicationsText = Buffer.Buffer<Types.Application>(p.applications.size());
+      for (app in p.applications.vals()) {
+        applicationsText.add({
+          id = app.id;
+          applicant = app.applicant;
+          projectId = app.projectId;
+          message = app.message;
+          status = app.status;
+        });
+      };
       buf.add({
         id = p.id;
-        owner = p.owner;
+        owner = Principal.toText(p.owner);
         name = p.name;
         vision = p.vision;
-        team = Buffer.toArray(p.team);
+        team = Array.map<Principal, Text>(Buffer.toArray(p.team), Principal.toText);
         openRoles = Buffer.toArray(p.openRoles);
-        applications = Buffer.toArray(p.applications);
+        applications = Buffer.toArray(applicationsText);
         isTokenized = p.isTokenized;
         totalShares = p.totalShares;
         availableShares = p.availableShares;
         pricePerShare = p.pricePerShare;
-        shareBalances = Iter.toArray(p.shareBalances.entries());
+        shareBalances = Buffer.toArray(shareBalancesText);
       });
     };
     Buffer.toArray(buf);
@@ -410,12 +441,34 @@ actor DeForger {
   private func getProjectMessagesInternal(projectId : Nat) : [Types.ChatMessage] {
     switch (messages.get(projectId)) {
       case (null) { [] };
-      case (?b) { Buffer.toArray(b) };
+      case (?b) {
+        let buf = Buffer.Buffer<Types.ChatMessage>(b.size());
+        for (msg in b.vals()) {
+          buf.add({
+            id = msg.id;
+            projectId = msg.projectId;
+            sender = msg.sender;
+            content = msg.content;
+            timestamp = msg.timestamp;
+          });
+        };
+        Buffer.toArray(buf);
+      };
     };
   };
 
   private func getAllAgentMatchesInternal() : [Types.AgentMatch] {
-    Buffer.toArray(agentMatches);
+    let buf = Buffer.Buffer<Types.AgentMatch>(agentMatches.size());
+    for (match in agentMatches.vals()) {
+      buf.add({
+        matchId = match.matchId;
+        projectId = match.projectId;
+        userId = match.userId;
+        roleFilled = match.roleFilled;
+        timestamp = match.timestamp;
+      });
+    };
+    Buffer.toArray(buf);
   };
 
   private func getProjectShareBalanceInternal(projectId : Nat, userId : Principal) : Nat {
@@ -448,7 +501,7 @@ actor DeForger {
     getProjectShareBalanceInternal(projectId, userId);
   };
 
-  // HTTP handling (for Fetch.ai agent and frontend)
+  // HTTP handling
   private func makeJsonResponse(statusCode : Nat16, jsonText : Text) : Types.HttpResponse {
     {
       status_code = statusCode;
@@ -486,18 +539,30 @@ actor DeForger {
 
   public query func http_request(req : Types.HttpRequest) : async Types.HttpResponse {
     let parts = Iter.toArray(Text.split(req.url, #char '?'));
-    let normalizedPath = Text.trimEnd(parts[0], #text "/"); // Get path without query params and trailing slash
+    let normalizedPath = Text.trimEnd(parts[0], #text "/");
     let params = parseQueryParams(req.url);
 
     switch (req.method) {
       case ("GET") {
         switch (normalizedPath) {
           case ("/get-all-projects") {
+            Debug.print("Fetching all projects");
             let allProjects = getAllProjectsInternal();
+            Debug.print("Projects fetched: " # Nat.toText(allProjects.size()));
             let blob = to_candid (allProjects);
+            Debug.print("Candid blob created");
             let keys = [];
-            let #ok(jsonText) = JSON.toText(blob, keys, null) else return makeSerializationErrorResponse();
-            makeJsonResponse(200, jsonText);
+            let result = JSON.toText(blob, keys, null);
+            switch (result) {
+              case (#ok(jsonText)) {
+                Debug.print("Serialization successful: " # jsonText);
+                makeJsonResponse(200, jsonText);
+              };
+              case (#err(msg)) {
+                Debug.print("Serialization failed: " # msg);
+                makeSerializationErrorResponse();
+              };
+            };
           };
           case ("/get-project") {
             let ?idText = params.get("id") else return makeJsonResponse(400, "{\"error\": \"Missing id\"}");
@@ -548,7 +613,6 @@ actor DeForger {
         };
       };
       case ("POST") {
-        // Signal the gateway to upgrade to http_request_update
         {
           status_code = 200;
           headers = [];
@@ -566,7 +630,7 @@ actor DeForger {
   public shared func http_request_update(req : Types.HttpRequest) : async Types.HttpResponse {
     Debug.print("http_request_update called with method: " # req.method # ", URL: " # req.url);
     let parts = Iter.toArray(Text.split(req.url, #char '?'));
-    let normalizedUrl = Text.trimEnd(parts[0], #text "/"); // Get path without query params
+    let normalizedUrl = Text.trimEnd(parts[0], #text "/");
     Debug.print("Normalized URL: " # normalizedUrl);
     switch (req.method, normalizedUrl) {
       case ("POST", "/login") {
@@ -682,7 +746,7 @@ actor DeForger {
         type Req = {
           token : Text;
           projectId : Nat;
-          userId : Principal;
+          userId : Text;
           roleFilled : Text;
         };
         let reqOpt : ?Req = from_candid (blob);
@@ -691,7 +755,16 @@ actor DeForger {
             return makeJsonResponse(400, "{\"error\": \"Missing fields\"}");
           };
           case (?reqData) {
-            let success = await recordAgentMatch(reqData.token, reqData.projectId, reqData.userId, reqData.roleFilled);
+            let userIdResult = try {
+              #ok(Principal.fromText(reqData.userId));
+            } catch (e) {
+              #err("Invalid userId");
+            };
+            let userId = switch (userIdResult) {
+              case (#ok(p)) p;
+              case (#err(e)) return makeJsonResponse(400, "{\"error\": \"" # e # "\"}");
+            };
+            let success = await recordAgentMatch(reqData.token, reqData.projectId, userId, reqData.roleFilled);
             let response = if (success) { "{\"success\": true}" } else {
               "{\"error\": \"Failed\"}";
             };
@@ -720,14 +793,19 @@ actor DeForger {
       case ("POST", "/review-application") {
         let ?jsonText = Text.decodeUtf8(req.body) else return makeJsonResponse(400, "{\"error\": \"Invalid body\"}");
         let #ok(blob) = JSON.fromText(jsonText, null) else return makeJsonResponse(400, "{\"error\": \"Invalid JSON\"}");
-        type Req = { token : Text; applicationId : Nat; accept : Bool };
+        type Req = { token : Text; applicationId : Nat; accept : Text };
         let reqOpt : ?Req = from_candid (blob);
         switch (reqOpt) {
           case (null) {
             return makeJsonResponse(400, "{\"error\": \"Missing fields\"}");
           };
           case (?reqData) {
-            let success = await reviewApplication(reqData.token, reqData.applicationId, reqData.accept);
+            let accept = switch (reqData.accept) {
+              case ("true") true;
+              case ("false") false;
+              case _ return makeJsonResponse(400, "{\"error\": \"Invalid accept value\"}");
+            };
+            let success = await reviewApplication(reqData.token, reqData.applicationId, accept);
             let response = if (success) { "{\"success\": true}" } else {
               "{\"error\": \"Failed\"}";
             };

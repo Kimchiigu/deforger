@@ -39,7 +39,7 @@ module {
   };
 
   public type PublicUserProfile = {
-    id : Principal;
+    id : Text; // Changed to Text for JSON serialization
     username : Text;
     name : Text;
     role : Text;
@@ -69,17 +69,17 @@ module {
 
   public type PublicProject = {
     id : Nat;
-    owner : Principal;
+    owner : Text;
     name : Text;
     vision : Text;
-    team : [Principal];
+    team : [Text];
     openRoles : [RoleRequirement];
     applications : [Application];
     isTokenized : Bool;
     totalShares : Nat;
     availableShares : Nat;
     pricePerShare : Nat;
-    shareBalances : [(Principal, Nat)];
+    shareBalances : [(Text, Nat)];
   };
 
   public type RoleRequirement = {
@@ -89,22 +89,16 @@ module {
 
   public type Application = {
     id : Nat;
-    applicant : Principal;
+    applicant : Text;
     projectId : Nat;
     message : Text;
-    status : ApplicationStatus;
-  };
-
-  public type ApplicationStatus = {
-    #pending;
-    #accepted;
-    #rejected;
+    status : Text;
   };
 
   public type AgentMatch = {
     matchId : Nat;
     projectId : Nat;
-    userId : Principal;
+    userId : Text; // Changed to Text for JSON serialization
     roleFilled : Text;
     timestamp : Time.Time;
   };
@@ -112,7 +106,7 @@ module {
   public type ChatMessage = {
     id : Nat;
     projectId : Nat;
-    sender : Principal;
+    sender : Text; // Changed to Text for JSON serialization
     content : Text;
     timestamp : Time.Time;
   };
