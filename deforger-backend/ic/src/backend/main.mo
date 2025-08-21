@@ -52,14 +52,6 @@ actor DeForger {
   private var messageCounter : Nat = 0;
   private var messages : HashMap.HashMap<Nat, Buffer.Buffer<Types.ChatMessage>> = HashMap.HashMap<Nat, Buffer.Buffer<Types.ChatMessage>>(0, Nat.equal, customNatHash);
 
-  // Ledger
-  private let LEDGER_CANISTER_ID = Principal.fromText("ryjl3-tyaaa-aaaaa-aaaba-cai"); // Mainnet ICP ledger
-  private let ledger = actor (Principal.toText(LEDGER_CANISTER_ID)) : actor {
-    icrc1_balance_of : query Types.Account -> async Nat;
-    icrc1_transfer : Types.TransferArg -> async Types.TransferResult;
-  };
-  private let canisterId = Principal.fromText("aaaaa-aa"); // REPLACE WITH ACTUAL CANISTER PRINCIPAL AFTER DEPLOYMENT
-
   // Helper functions
   private func validateToken(token : Text) : ?Principal {
     switch (sessions.get(token)) {
@@ -75,18 +67,6 @@ actor DeForger {
     };
   };
 
-  private func projectSubaccount(id : Nat) : Blob {
-    let bytes = Array.init<Nat8>(32, 0);
-    var temp = id;
-    var i = 31;
-    while (temp > 0 and i >= 0) {
-      bytes[i] := Nat8.fromNat(temp % 256);
-      temp /= 256;
-      i -= 1;
-    };
-    Blob.fromArrayMut(bytes);
-  };
-
   // Helper to encode a Blob to a hex Text
   private func blobToHex(blob : Blob) : Text {
     var hexText = "";
@@ -97,14 +77,14 @@ actor DeForger {
   };
 
   // Public methods (direct calls)
-  public shared func register(username : Text, password : Text, name : Text, role : Text, skills : [Text], portfolioUrl : Text) : async Bool {
+  public shared (msg) func register(username : Text, password : Text, name : Text, role : Text, skills : [Text], portfolioUrl : Text) : async Bool {
     if (users.get(username) != null) { return false };
-    let salt = Text.encodeUtf8(username); // Simple salting
+    let salt = Text.encodeUtf8(username);
     let passBlob = Text.encodeUtf8(password);
     let saltedPassword = Blob.fromArray(Array.append(Blob.toArray(salt), Blob.toArray(passBlob)));
     let hashBlob = Sha256.fromBlob(#sha256, saltedPassword);
     let hash = blobToHex(hashBlob);
-    let userId = Principal.fromText(username);
+    let userId = msg.caller; // Use the caller's principal
     let profile : Types.UserProfile = {
       id = userId;
       username = username;
@@ -157,7 +137,316 @@ actor DeForger {
     };
   };
 
-  // Other public methods similarly implemented as above (omitted for brevity in this summary, but full in thinking trace)
+  public shared func updateUserProfile(token : Text, name : Text, role : Text, skills : [Text], portfolioUrl : Text) : async Bool {
+    switch (validateToken(token)) {
+      case (null) { false };
+      case (?userId) {
+        let ?username = idToUsername.get(userId) else return false;
+        let ?profile = users.get(username) else return false;
+        let updated = {
+          profile with name = name;
+          role = role;
+          skills = skills;
+          portfolioUrl = portfolioUrl;
+        };
+        users.put(username, updated);
+        true;
+      };
+    };
+  };
+
+  public shared func createProject(token : Text, name : Text, vision : Text, openRoles : [Types.RoleRequirement]) : async Nat {
+    switch (validateToken(token)) {
+      case (null) { Debug.trap("Invalid token") };
+      case (?owner) {
+        projectCounter += 1;
+        let id = projectCounter;
+        let team = Buffer.Buffer<Principal>(1);
+        team.add(owner);
+        let shareBalances = HashMap.HashMap<Principal, Nat>(0, Principal.equal, customPrincipalHash);
+        let project : Types.Project = {
+          id;
+          owner;
+          name;
+          vision;
+          team;
+          openRoles = Buffer.fromArray(openRoles);
+          applications = Buffer.Buffer<Types.Application>(0);
+          isTokenized = false;
+          totalShares = 0;
+          availableShares = 0;
+          pricePerShare = 0;
+          shareBalances;
+        };
+        projects.put(id, project);
+        id;
+      };
+    };
+  };
+
+  public shared func recordAgentMatch(token : Text, projectId : Nat, userId : Principal, roleFilled : Text) : async Bool {
+    switch (validateToken(token)) {
+      case (null) { false };
+      case (?caller) {
+        let ?project = projects.get(projectId) else return false;
+        // Assume caller is authorized (agent with token)
+        if (not Buffer.contains<Principal>(project.team, userId, Principal.equal)) {
+          project.team.add(userId);
+        };
+        let newOpenRoles = Buffer.Buffer<Types.RoleRequirement>(0);
+        for (role in project.openRoles.vals()) {
+          if (role.roleName != roleFilled) {
+            newOpenRoles.add(role);
+          };
+        };
+        let updatedProject : Types.Project = {
+          project with openRoles = newOpenRoles
+        };
+        projects.put(projectId, updatedProject);
+        agentMatchCounter += 1;
+        let match_ : Types.AgentMatch = {
+          matchId = agentMatchCounter;
+          projectId;
+          userId;
+          roleFilled;
+          timestamp = Time.now();
+        };
+        agentMatches.add(match_);
+        true;
+      };
+    };
+  };
+
+  public shared func applyToProject(token : Text, projectId : Nat, message : Text) : async Bool {
+    switch (validateToken(token)) {
+      case (null) { false };
+      case (?applicant) {
+        let ?project = projects.get(projectId) else return false;
+        if (Buffer.contains<Principal>(project.team, applicant, Principal.equal)) {
+          return false;
+        };
+        applicationCounter += 1;
+        let app : Types.Application = {
+          id = applicationCounter;
+          applicant;
+          projectId;
+          message;
+          status = #pending;
+        };
+        project.applications.add(app);
+        true;
+      };
+    };
+  };
+
+  public shared func reviewApplication(token : Text, applicationId : Nat, accept : Bool) : async Bool {
+    switch (validateToken(token)) {
+      case (null) { false };
+      case (?caller) {
+        var found = false;
+        var index : ?Nat = null;
+        var appFound : ?Types.Application = null;
+        label search for (project in projects.vals()) {
+          for (i in Iter.range(0, project.applications.size() - 1)) {
+            let app = project.applications.get(i);
+            if (app.id == applicationId) {
+              if (project.owner != caller) { return false };
+              found := true;
+              index := ?i;
+              appFound := ?app;
+              break search;
+            };
+          };
+        };
+        if (not found) { return false };
+        let ?app = appFound else return false;
+        let ?proj = projects.get(app.projectId) else return false;
+        let status = if (accept) #accepted else #rejected;
+        let updatedApp = { app with status = status };
+        ignore do ? { proj.applications.put(index!, updatedApp) };
+        if (accept) {
+          proj.team.add(app.applicant);
+        };
+        true;
+      };
+    };
+  };
+
+  public shared func sendMessage(token : Text, projectId : Nat, content : Text) : async Bool {
+    switch (validateToken(token)) {
+      case (null) { false };
+      case (?sender) {
+        let ?project = projects.get(projectId) else return false;
+        if (not Buffer.contains<Principal>(project.team, sender, Principal.equal)) {
+          return false;
+        };
+        messageCounter += 1;
+        let msg : Types.ChatMessage = {
+          id = messageCounter;
+          projectId;
+          sender;
+          content;
+          timestamp = Time.now();
+        };
+        switch (messages.get(projectId)) {
+          case (null) {
+            let b = Buffer.Buffer<Types.ChatMessage>(1);
+            b.add(msg);
+            messages.put(projectId, b);
+          };
+          case (?b) {
+            b.add(msg);
+          };
+        };
+        true;
+      };
+    };
+  };
+
+  public shared func tokenizeProject(token : Text, projectId : Nat, totalShares : Nat, pricePerShare : Nat) : async Bool {
+    switch (validateToken(token)) {
+      case (null) { false };
+      case (?caller) {
+        let ?project = projects.get(projectId) else return false;
+        if (project.owner != caller or project.isTokenized) { return false };
+        let updated = {
+          project with
+          isTokenized = true;
+          totalShares = totalShares;
+          availableShares = totalShares;
+          pricePerShare = pricePerShare;
+        };
+        projects.put(projectId, updated);
+        true;
+      };
+    };
+  };
+
+  public shared func buyShares(token : Text, projectId : Nat, numShares : Nat) : async Bool {
+    switch (validateToken(token)) {
+      case (null) { false };
+      case (?buyer) {
+        let ?project = projects.get(projectId) else return false;
+        if (not project.isTokenized or numShares > project.availableShares) {
+          return false;
+        };
+        // Ignoring ledger transfer check; assume payment handled externally
+        let current = Option.get(project.shareBalances.get(buyer), 0);
+        project.shareBalances.put(buyer, current + numShares);
+        let updated = {
+          project with availableShares = project.availableShares - numShares
+        };
+        projects.put(projectId, updated);
+        true;
+      };
+    };
+  };
+
+  public shared func withdrawProjectFunds(token : Text, projectId : Nat) : async Bool {
+    switch (validateToken(token)) {
+      case (null) { false };
+      case (?caller) {
+        let ?project = projects.get(projectId) else return false;
+        if (project.owner != caller) { return false };
+        // Ignoring ledger transfer; assume handled externally
+        true;
+      };
+    };
+  };
+
+  // Internal non-async query functions
+  private func getUserProfileInternal(userId : Principal) : ?Types.PublicUserProfile {
+    let ?username = idToUsername.get(userId) else return null;
+    let ?profile = users.get(username) else return null;
+    ?{
+      id = profile.id;
+      username = profile.username;
+      name = profile.name;
+      role = profile.role;
+      skills = profile.skills;
+      portfolioUrl = profile.portfolioUrl;
+    };
+  };
+
+  private func getProjectInternal(projectId : Nat) : ?Types.PublicProject {
+    let ?project = projects.get(projectId) else return null;
+    ?{
+      id = project.id;
+      owner = project.owner;
+      name = project.name;
+      vision = project.vision;
+      team = Buffer.toArray(project.team);
+      openRoles = Buffer.toArray(project.openRoles);
+      applications = Buffer.toArray(project.applications);
+      isTokenized = project.isTokenized;
+      totalShares = project.totalShares;
+      availableShares = project.availableShares;
+      pricePerShare = project.pricePerShare;
+      shareBalances = Iter.toArray(project.shareBalances.entries());
+    };
+  };
+
+  private func getAllProjectsInternal() : [Types.PublicProject] {
+    let buf = Buffer.Buffer<Types.PublicProject>(projects.size());
+    for (p in projects.vals()) {
+      buf.add({
+        id = p.id;
+        owner = p.owner;
+        name = p.name;
+        vision = p.vision;
+        team = Buffer.toArray(p.team);
+        openRoles = Buffer.toArray(p.openRoles);
+        applications = Buffer.toArray(p.applications);
+        isTokenized = p.isTokenized;
+        totalShares = p.totalShares;
+        availableShares = p.availableShares;
+        pricePerShare = p.pricePerShare;
+        shareBalances = Iter.toArray(p.shareBalances.entries());
+      });
+    };
+    Buffer.toArray(buf);
+  };
+
+  private func getProjectMessagesInternal(projectId : Nat) : [Types.ChatMessage] {
+    switch (messages.get(projectId)) {
+      case (null) { [] };
+      case (?b) { Buffer.toArray(b) };
+    };
+  };
+
+  private func getAllAgentMatchesInternal() : [Types.AgentMatch] {
+    Buffer.toArray(agentMatches);
+  };
+
+  private func getProjectShareBalanceInternal(projectId : Nat, userId : Principal) : Nat {
+    let ?project = projects.get(projectId) else return 0;
+    Option.get(project.shareBalances.get(userId), 0);
+  };
+
+  // Read-Only Queries
+  public query func getUserProfile(userId : Principal) : async ?Types.PublicUserProfile {
+    getUserProfileInternal(userId);
+  };
+
+  public query func getProject(projectId : Nat) : async ?Types.PublicProject {
+    getProjectInternal(projectId);
+  };
+
+  public query func getAllProjects() : async [Types.PublicProject] {
+    getAllProjectsInternal();
+  };
+
+  public query func getProjectMessages(projectId : Nat) : async [Types.ChatMessage] {
+    getProjectMessagesInternal(projectId);
+  };
+
+  public query func getAllAgentMatches() : async [Types.AgentMatch] {
+    getAllAgentMatchesInternal();
+  };
+
+  public query func getProjectShareBalance(projectId : Nat, userId : Principal) : async Nat {
+    getProjectShareBalanceInternal(projectId, userId);
+  };
 
   // HTTP handling (for Fetch.ai agent and frontend)
   private func makeJsonResponse(statusCode : Nat16, jsonText : Text) : Types.HttpResponse {
@@ -180,58 +469,112 @@ actor DeForger {
     };
   };
 
-  public query func http_request(req : Types.HttpRequest) : async Types.HttpResponse {
-    // Handle GET for query methods (e.g., GET /get-all-projects)
-    let normalizedUrl = Text.trimEnd(req.url, #text "/");
-    switch (req.method, normalizedUrl) {
-      case ("GET", "/get-all-projects") {
-        let allProjects = Iter.toArray(projects.vals());
-        let publicProjects = Array.map<Types.Project, Types.PublicProject>(
-          allProjects,
-          func(p) {
-            {
-              id = p.id;
-              owner = p.owner;
-              name = p.name;
-              vision = p.vision;
-              team = Buffer.toArray(p.team);
-              openRoles = Buffer.toArray(p.openRoles);
-              applications = Buffer.toArray(p.applications);
-              isTokenized = p.isTokenized;
-              totalShares = p.totalShares;
-              availableShares = p.availableShares;
-              pricePerShare = p.pricePerShare;
-              shareBalances = Iter.toArray(p.shareBalances.entries());
-            };
-          },
-        );
-        let blob = to_candid (publicProjects);
-        let keys = []; // Adjust if needed for array
-        let #ok(jsonText) = JSON.toText(blob, keys, null) else return makeSerializationErrorResponse();
-        makeJsonResponse(200, jsonText);
+  private func parseQueryParams(url : Text) : HashMap.HashMap<Text, Text> {
+    let params = HashMap.HashMap<Text, Text>(0, Text.equal, Text.hash);
+    let parts = Iter.toArray(Text.split(url, #char '?'));
+    if (parts.size() < 2) { return params };
+    let parsedQuery = parts[1];
+    let pairs = Iter.toArray(Text.split(parsedQuery, #char '&'));
+    for (pair in pairs.vals()) {
+      let kv = Iter.toArray(Text.split(pair, #char '='));
+      if (kv.size() == 2) {
+        params.put(kv[0], kv[1]);
       };
-      // Add other GET queries similarly
-      case _ {
-        {
-          status_code = 404;
-          headers = [("content-type", "application/json")];
-          body = Text.encodeUtf8("{\"error\": \"Not found\"}");
-          streaming_strategy = null;
-          upgrade = null;
+    };
+    params;
+  };
+
+  public query func http_request(req : Types.HttpRequest) : async Types.HttpResponse {
+    let parts = Iter.toArray(Text.split(req.url, #char '?'));
+    let normalizedPath = Text.trimEnd(parts[0], #text "/"); // Get path without query params and trailing slash
+    let params = parseQueryParams(req.url);
+
+    switch (req.method) {
+      case ("GET") {
+        switch (normalizedPath) {
+          case ("/get-all-projects") {
+            let allProjects = getAllProjectsInternal();
+            let blob = to_candid (allProjects);
+            let keys = [];
+            let #ok(jsonText) = JSON.toText(blob, keys, null) else return makeSerializationErrorResponse();
+            makeJsonResponse(200, jsonText);
+          };
+          case ("/get-project") {
+            let ?idText = params.get("id") else return makeJsonResponse(400, "{\"error\": \"Missing id\"}");
+            let ?id = Nat.fromText(idText) else return makeJsonResponse(400, "{\"error\": \"Invalid id\"}");
+            let projOpt = getProjectInternal(id);
+            let blob = to_candid (projOpt);
+            let keys = [];
+            let #ok(jsonText) = JSON.toText(blob, keys, null) else return makeSerializationErrorResponse();
+            makeJsonResponse(200, jsonText);
+          };
+          case ("/get-user-profile") {
+            let ?userIdText = params.get("userId") else return makeJsonResponse(400, "{\"error\": \"Missing userId\"}");
+            let userId = Principal.fromText(userIdText);
+            let profileOpt = getUserProfileInternal(userId);
+            let blob = to_candid (profileOpt);
+            let keys = [];
+            let #ok(jsonText) = JSON.toText(blob, keys, null) else return makeSerializationErrorResponse();
+            makeJsonResponse(200, jsonText);
+          };
+          case ("/get-project-messages") {
+            let ?idText = params.get("projectId") else return makeJsonResponse(400, "{\"error\": \"Missing projectId\"}");
+            let ?id = Nat.fromText(idText) else return makeJsonResponse(400, "{\"error\": \"Invalid projectId\"}");
+            let msgs = getProjectMessagesInternal(id);
+            let blob = to_candid (msgs);
+            let keys = [];
+            let #ok(jsonText) = JSON.toText(blob, keys, null) else return makeSerializationErrorResponse();
+            makeJsonResponse(200, jsonText);
+          };
+          case ("/get-all-agent-matches") {
+            let matches = getAllAgentMatchesInternal();
+            let blob = to_candid (matches);
+            let keys = [];
+            let #ok(jsonText) = JSON.toText(blob, keys, null) else return makeSerializationErrorResponse();
+            makeJsonResponse(200, jsonText);
+          };
+          case ("/get-project-share-balance") {
+            let ?projectIdText = params.get("projectId") else return makeJsonResponse(400, "{\"error\": \"Missing projectId\"}");
+            let ?projectId = Nat.fromText(projectIdText) else return makeJsonResponse(400, "{\"error\": \"Invalid projectId\"}");
+            let ?userIdText = params.get("userId") else return makeJsonResponse(400, "{\"error\": \"Missing userId\"}");
+            let userId = Principal.fromText(userIdText);
+            let bal = getProjectShareBalanceInternal(projectId, userId);
+            let jsonText = "{\"balance\": " # Nat.toText(bal) # "}";
+            makeJsonResponse(200, jsonText);
+          };
+          case _ {
+            makeJsonResponse(404, "{\"error\": \"Not found\"}");
+          };
         };
+      };
+      case ("POST") {
+        // Signal the gateway to upgrade to http_request_update
+        {
+          status_code = 200;
+          headers = [];
+          body = Blob.fromArray([]);
+          streaming_strategy = null;
+          upgrade = ?true;
+        };
+      };
+      case _ {
+        makeJsonResponse(404, "{\"error\": \"Not found\"}");
       };
     };
   };
 
-  public func http_request_update(req : Types.HttpRequest) : async Types.HttpResponse {
-    let normalizedUrl = Text.trimEnd(req.url, #text "/");
+  public shared func http_request_update(req : Types.HttpRequest) : async Types.HttpResponse {
+    Debug.print("http_request_update called with method: " # req.method # ", URL: " # req.url);
+    let parts = Iter.toArray(Text.split(req.url, #char '?'));
+    let normalizedUrl = Text.trimEnd(parts[0], #text "/"); // Get path without query params
+    Debug.print("Normalized URL: " # normalizedUrl);
     switch (req.method, normalizedUrl) {
       case ("POST", "/login") {
         let ?jsonText = Text.decodeUtf8(req.body) else return makeJsonResponse(400, "{\"error\": \"Invalid body\"}");
         let #ok(blob) = JSON.fromText(jsonText, null) else return makeJsonResponse(400, "{\"error\": \"Invalid JSON\"}");
         type LoginReq = { username : Text; password : Text };
-        let loginReqResult : ?LoginReq = from_candid (blob);
-        switch (loginReqResult) {
+        let loginReqOpt : ?LoginReq = from_candid (blob);
+        switch (loginReqOpt) {
           case (null) {
             return makeJsonResponse(400, "{\"error\": \"Missing fields\"}");
           };
@@ -245,7 +588,230 @@ actor DeForger {
           };
         };
       };
-      // Add other POST routes similarly for update methods (e.g., /register, /create-project, etc.)
+      case ("POST", "/register") {
+        let ?jsonText = Text.decodeUtf8(req.body) else return makeJsonResponse(400, "{\"error\": \"Invalid body\"}");
+        let #ok(blob) = JSON.fromText(jsonText, null) else return makeJsonResponse(400, "{\"error\": \"Invalid JSON\"}");
+        type RegReq = {
+          username : Text;
+          password : Text;
+          name : Text;
+          role : Text;
+          skills : [Text];
+          portfolioUrl : Text;
+        };
+        let regReqOpt : ?RegReq = from_candid (blob);
+        switch (regReqOpt) {
+          case (null) {
+            return makeJsonResponse(400, "{\"error\": \"Missing fields\"}");
+          };
+          case (?regReq) {
+            let success = await register(regReq.username, regReq.password, regReq.name, regReq.role, regReq.skills, regReq.portfolioUrl);
+            let response = if (success) { "{\"success\": true}" } else {
+              "{\"error\": \"Username exists\"}";
+            };
+            makeJsonResponse(200, response);
+          };
+        };
+      };
+      case ("POST", "/change-password") {
+        let ?jsonText = Text.decodeUtf8(req.body) else return makeJsonResponse(400, "{\"error\": \"Invalid body\"}");
+        let #ok(blob) = JSON.fromText(jsonText, null) else return makeJsonResponse(400, "{\"error\": \"Invalid JSON\"}");
+        type Req = { token : Text; newPassword : Text };
+        let reqOpt : ?Req = from_candid (blob);
+        switch (reqOpt) {
+          case (null) {
+            return makeJsonResponse(400, "{\"error\": \"Missing fields\"}");
+          };
+          case (?reqData) {
+            let success = await changePassword(reqData.token, reqData.newPassword);
+            let response = if (success) { "{\"success\": true}" } else {
+              "{\"error\": \"Failed\"}";
+            };
+            makeJsonResponse(200, response);
+          };
+        };
+      };
+      case ("POST", "/update-user-profile") {
+        let ?jsonText = Text.decodeUtf8(req.body) else return makeJsonResponse(400, "{\"error\": \"Invalid body\"}");
+        let #ok(blob) = JSON.fromText(jsonText, null) else return makeJsonResponse(400, "{\"error\": \"Invalid JSON\"}");
+        type Req = {
+          token : Text;
+          name : Text;
+          role : Text;
+          skills : [Text];
+          portfolioUrl : Text;
+        };
+        let reqOpt : ?Req = from_candid (blob);
+        switch (reqOpt) {
+          case (null) {
+            return makeJsonResponse(400, "{\"error\": \"Missing fields\"}");
+          };
+          case (?reqData) {
+            let success = await updateUserProfile(reqData.token, reqData.name, reqData.role, reqData.skills, reqData.portfolioUrl);
+            let response = if (success) { "{\"success\": true}" } else {
+              "{\"error\": \"Failed\"}";
+            };
+            makeJsonResponse(200, response);
+          };
+        };
+      };
+      case ("POST", "/create-project") {
+        let ?jsonText = Text.decodeUtf8(req.body) else return makeJsonResponse(400, "{\"error\": \"Invalid body\"}");
+        let #ok(blob) = JSON.fromText(jsonText, null) else return makeJsonResponse(400, "{\"error\": \"Invalid JSON\"}");
+        type Req = {
+          token : Text;
+          name : Text;
+          vision : Text;
+          openRoles : [Types.RoleRequirement];
+        };
+        let reqOpt : ?Req = from_candid (blob);
+        switch (reqOpt) {
+          case (null) {
+            return makeJsonResponse(400, "{\"error\": \"Missing fields\"}");
+          };
+          case (?reqData) {
+            let id = await createProject(reqData.token, reqData.name, reqData.vision, reqData.openRoles);
+            let response = "{\"id\": " # Nat.toText(id) # "}";
+            makeJsonResponse(200, response);
+          };
+        };
+      };
+      case ("POST", "/record-agent-match") {
+        let ?jsonText = Text.decodeUtf8(req.body) else return makeJsonResponse(400, "{\"error\": \"Invalid body\"}");
+        let #ok(blob) = JSON.fromText(jsonText, null) else return makeJsonResponse(400, "{\"error\": \"Invalid JSON\"}");
+        type Req = {
+          token : Text;
+          projectId : Nat;
+          userId : Principal;
+          roleFilled : Text;
+        };
+        let reqOpt : ?Req = from_candid (blob);
+        switch (reqOpt) {
+          case (null) {
+            return makeJsonResponse(400, "{\"error\": \"Missing fields\"}");
+          };
+          case (?reqData) {
+            let success = await recordAgentMatch(reqData.token, reqData.projectId, reqData.userId, reqData.roleFilled);
+            let response = if (success) { "{\"success\": true}" } else {
+              "{\"error\": \"Failed\"}";
+            };
+            makeJsonResponse(200, response);
+          };
+        };
+      };
+      case ("POST", "/apply-to-project") {
+        let ?jsonText = Text.decodeUtf8(req.body) else return makeJsonResponse(400, "{\"error\": \"Invalid body\"}");
+        let #ok(blob) = JSON.fromText(jsonText, null) else return makeJsonResponse(400, "{\"error\": \"Invalid JSON\"}");
+        type Req = { token : Text; projectId : Nat; message : Text };
+        let reqOpt : ?Req = from_candid (blob);
+        switch (reqOpt) {
+          case (null) {
+            return makeJsonResponse(400, "{\"error\": \"Missing fields\"}");
+          };
+          case (?reqData) {
+            let success = await applyToProject(reqData.token, reqData.projectId, reqData.message);
+            let response = if (success) { "{\"success\": true}" } else {
+              "{\"error\": \"Failed\"}";
+            };
+            makeJsonResponse(200, response);
+          };
+        };
+      };
+      case ("POST", "/review-application") {
+        let ?jsonText = Text.decodeUtf8(req.body) else return makeJsonResponse(400, "{\"error\": \"Invalid body\"}");
+        let #ok(blob) = JSON.fromText(jsonText, null) else return makeJsonResponse(400, "{\"error\": \"Invalid JSON\"}");
+        type Req = { token : Text; applicationId : Nat; accept : Bool };
+        let reqOpt : ?Req = from_candid (blob);
+        switch (reqOpt) {
+          case (null) {
+            return makeJsonResponse(400, "{\"error\": \"Missing fields\"}");
+          };
+          case (?reqData) {
+            let success = await reviewApplication(reqData.token, reqData.applicationId, reqData.accept);
+            let response = if (success) { "{\"success\": true}" } else {
+              "{\"error\": \"Failed\"}";
+            };
+            makeJsonResponse(200, response);
+          };
+        };
+      };
+      case ("POST", "/send-message") {
+        let ?jsonText = Text.decodeUtf8(req.body) else return makeJsonResponse(400, "{\"error\": \"Invalid body\"}");
+        let #ok(blob) = JSON.fromText(jsonText, null) else return makeJsonResponse(400, "{\"error\": \"Invalid JSON\"}");
+        type Req = { token : Text; projectId : Nat; content : Text };
+        let reqOpt : ?Req = from_candid (blob);
+        switch (reqOpt) {
+          case (null) {
+            return makeJsonResponse(400, "{\"error\": \"Missing fields\"}");
+          };
+          case (?reqData) {
+            let success = await sendMessage(reqData.token, reqData.projectId, reqData.content);
+            let response = if (success) { "{\"success\": true}" } else {
+              "{\"error\": \"Failed\"}";
+            };
+            makeJsonResponse(200, response);
+          };
+        };
+      };
+      case ("POST", "/tokenize-project") {
+        let ?jsonText = Text.decodeUtf8(req.body) else return makeJsonResponse(400, "{\"error\": \"Invalid body\"}");
+        let #ok(blob) = JSON.fromText(jsonText, null) else return makeJsonResponse(400, "{\"error\": \"Invalid JSON\"}");
+        type Req = {
+          token : Text;
+          projectId : Nat;
+          totalShares : Nat;
+          pricePerShare : Nat;
+        };
+        let reqOpt : ?Req = from_candid (blob);
+        switch (reqOpt) {
+          case (null) {
+            return makeJsonResponse(400, "{\"error\": \"Missing fields\"}");
+          };
+          case (?reqData) {
+            let success = await tokenizeProject(reqData.token, reqData.projectId, reqData.totalShares, reqData.pricePerShare);
+            let response = if (success) { "{\"success\": true}" } else {
+              "{\"error\": \"Failed\"}";
+            };
+            makeJsonResponse(200, response);
+          };
+        };
+      };
+      case ("POST", "/buy-shares") {
+        let ?jsonText = Text.decodeUtf8(req.body) else return makeJsonResponse(400, "{\"error\": \"Invalid body\"}");
+        let #ok(blob) = JSON.fromText(jsonText, null) else return makeJsonResponse(400, "{\"error\": \"Invalid JSON\"}");
+        type Req = { token : Text; projectId : Nat; numShares : Nat };
+        let reqOpt : ?Req = from_candid (blob);
+        switch (reqOpt) {
+          case (null) {
+            return makeJsonResponse(400, "{\"error\": \"Missing fields\"}");
+          };
+          case (?reqData) {
+            let success = await buyShares(reqData.token, reqData.projectId, reqData.numShares);
+            let response = if (success) { "{\"success\": true}" } else {
+              "{\"error\": \"Failed\"}";
+            };
+            makeJsonResponse(200, response);
+          };
+        };
+      };
+      case ("POST", "/withdraw-project-funds") {
+        let ?jsonText = Text.decodeUtf8(req.body) else return makeJsonResponse(400, "{\"error\": \"Invalid body\"}");
+        let #ok(blob) = JSON.fromText(jsonText, null) else return makeJsonResponse(400, "{\"error\": \"Invalid JSON\"}");
+        type Req = { token : Text; projectId : Nat };
+        let reqOpt : ?Req = from_candid (blob);
+        switch (reqOpt) {
+          case (null) {
+            return makeJsonResponse(400, "{\"error\": \"Missing fields\"}");
+          };
+          case (?reqData) {
+            let success = await withdrawProjectFunds(reqData.token, reqData.projectId);
+            let response = if (success) { "{\"success\": true}" } else {
+              "{\"error\": \"Failed\"}";
+            };
+            makeJsonResponse(200, response);
+          };
+        };
+      };
       case _ {
         makeJsonResponse(404, "{\"error\": \"Not found\"}");
       };

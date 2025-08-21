@@ -10,11 +10,14 @@ from uagents_core.contrib.protocols.chat import (
 from uagents import Agent, Context, Protocol
 from datetime import datetime, timezone, timedelta
 from uuid import uuid4
+import os
+from dotenv import load_dotenv
+
+load_dotenv('./.env')
 
 # ASI1 API settings
-# Create yours at: https://asi1.ai/dashboard/api-keys
-ASI1_API_KEY = "sk_a9a67513453a42809c9929dee0babd29f2e709ba51444f8cb2fd0ed3bf114bbb" # your_asi1_api_key" # Replace with your ASI1 key
-ASI1_BASE_URL = "https://api.asi1.ai/v1"
+ASI1_API_KEY = os.getenv('ASI1_API_KEY')
+ASI1_BASE_URL = os.getenv('ASI1_BASE_URL')
 ASI1_HEADERS = {
     "Authorization": f"Bearer {ASI1_API_KEY}",
     "Content-Type": "application/json"
@@ -24,7 +27,7 @@ CANISTER_ID = "uxrrr-q7777-77774-qaaaq-cai"
 BASE_URL = "http://127.0.0.1:4943"
 
 HEADERS = {
-    "Host": f"{CANISTER_ID}.localhost",
+    "Host": f"{CANISTER_ID}.raw.localhost", # added .raw to bypass local certification errors
     "Content-Type": "application/json"
 }
 
@@ -33,8 +36,241 @@ tools = [
     {
         "type": "function",
         "function": {
-            "name": "get_current_fee_percentiles",
-            "description": "Gets the 100 fee percentiles measured in millisatoshi/byte.",
+            "name": "register",
+            "description": "Registers a new user.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "username": {"type": "string", "description": "The username."},
+                    "password": {"type": "string", "description": "The password."},
+                    "name": {"type": "string", "description": "The full name."},
+                    "role": {"type": "string", "description": "The professional role."},
+                    "skills": {"type": "array", "items": {"type": "string"}, "description": "List of skills."},
+                    "portfolioUrl": {"type": "string", "description": "Portfolio URL."}
+                },
+                "required": ["username", "password", "name", "role", "skills", "portfolioUrl"],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "login",
+            "description": "Logs in a user and returns a session token.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "username": {"type": "string", "description": "The username."},
+                    "password": {"type": "string", "description": "The password."}
+                },
+                "required": ["username", "password"],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "change_password",
+            "description": "Changes the password for the authenticated user.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "token": {"type": "string", "description": "Session token."},
+                    "newPassword": {"type": "string", "description": "New password."}
+                },
+                "required": ["token", "newPassword"],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "update_user_profile",
+            "description": "Updates the user profile.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "token": {"type": "string", "description": "Session token."},
+                    "name": {"type": "string", "description": "The full name."},
+                    "role": {"type": "string", "description": "The professional role."},
+                    "skills": {"type": "array", "items": {"type": "string"}, "description": "List of skills."},
+                    "portfolioUrl": {"type": "string", "description": "Portfolio URL."}
+                },
+                "required": ["token", "name", "role", "skills", "portfolioUrl"],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "create_project",
+            "description": "Creates a new project.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "token": {"type": "string", "description": "Session token."},
+                    "name": {"type": "string", "description": "Project name."},
+                    "vision": {"type": "string", "description": "Project vision."},
+                    "openRoles": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "roleName": {"type": "string"},
+                                "requiredSkills": {"type": "array", "items": {"type": "string"}}
+                            },
+                            "required": ["roleName", "requiredSkills"],
+                            "additionalProperties": False
+                        },
+                        "description": "List of open roles."
+                    }
+                },
+                "required": ["token", "name", "vision", "openRoles"],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "record_agent_match",
+            "description": "Records an agent-driven match.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "token": {"type": "string", "description": "Session token."},
+                    "projectId": {"type": "number", "description": "Project ID."},
+                    "userId": {"type": "string", "description": "User Principal as string."},
+                    "roleFilled": {"type": "string", "description": "Role filled."}
+                },
+                "required": ["token", "projectId", "userId", "roleFilled"],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "apply_to_project",
+            "description": "Applies to a project.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "token": {"type": "string", "description": "Session token."},
+                    "projectId": {"type": "number", "description": "Project ID."},
+                    "message": {"type": "string", "description": "Application message."}
+                },
+                "required": ["token", "projectId", "message"],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "review_application",
+            "description": "Reviews an application.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "token": {"type": "string", "description": "Session token."},
+                    "applicationId": {"type": "number", "description": "Application ID."},
+                    "accept": {"type": "boolean", "description": "Accept or reject."}
+                },
+                "required": ["token", "applicationId", "accept"],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "send_message",
+            "description": "Sends a message in a project chat.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "token": {"type": "string", "description": "Session token."},
+                    "projectId": {"type": "number", "description": "Project ID."},
+                    "content": {"type": "string", "description": "Message content."}
+                },
+                "required": ["token", "projectId", "content"],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "tokenize_project",
+            "description": "Tokenizes a project for share sales.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "token": {"type": "string", "description": "Session token."},
+                    "projectId": {"type": "number", "description": "Project ID."},
+                    "totalShares": {"type": "number", "description": "Total shares."},
+                    "pricePerShare": {"type": "number", "description": "Price per share."}
+                },
+                "required": ["token", "projectId", "totalShares", "pricePerShare"],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "buy_shares",
+            "description": "Buys shares in a tokenized project.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "token": {"type": "string", "description": "Session token."},
+                    "projectId": {"type": "number", "description": "Project ID."},
+                    "numShares": {"type": "number", "description": "Number of shares to buy."}
+                },
+                "required": ["token", "projectId", "numShares"],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "withdraw_project_funds",
+            "description": "Withdraws funds from a project.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "token": {"type": "string", "description": "Session token."},
+                    "projectId": {"type": "number", "description": "Project ID."}
+                },
+                "required": ["token", "projectId"],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_all_projects",
+            "description": "Retrieves all projects.",
             "parameters": {
                 "type": "object",
                 "properties": {},
@@ -47,17 +283,14 @@ tools = [
     {
         "type": "function",
         "function": {
-            "name": "get_balance",
-            "description": "Returns the balance of a given Bitcoin address.",
+            "name": "get_project",
+            "description": "Retrieves a specific project.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "address": {
-                        "type": "string",
-                        "description": "The Bitcoin address to check."
-                    }
+                    "id": {"type": "number", "description": "Project ID."}
                 },
-                "required": ["address"],
+                "required": ["id"],
                 "additionalProperties": False
             },
             "strict": True
@@ -66,36 +299,81 @@ tools = [
     {
         "type": "function",
         "function": {
-            "name": "get_utxos",
-            "description": "Returns the UTXOs of a given Bitcoin address.",
+            "name": "get_user_profile",
+            "description": "Retrieves a user profile.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "address": {
-                        "type": "string",
-                        "description": "The Bitcoin address to fetch UTXOs for."
-                    }
+                    "userId": {"type": "string", "description": "User Principal as string."}
                 },
-                "required": ["address"],
+                "required": ["userId"],
                 "additionalProperties": False
             },
             "strict": True
         }
-    },    
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_project_messages",
+            "description": "Retrieves messages for a project.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "projectId": {"type": "number", "description": "Project ID."}
+                },
+                "required": ["projectId"],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_all_agent_matches",
+            "description": "Retrieves all agent matches.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_project_share_balance",
+            "description": "Retrieves share balance for a user in a project.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "projectId": {"type": "number", "description": "Project ID."},
+                    "userId": {"type": "string", "description": "User Principal as string."}
+                },
+                "required": ["projectId", "userId"],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    }
 ]
 
 async def call_icp_endpoint(func_name: str, args: dict):
-    if func_name == "get_current_fee_percentiles":
-        url = f"{BASE_URL}/get-current-fee-percentiles"
-        response = requests.post(url, headers=HEADERS, json={})
-    elif func_name == "get_balance":
-        url = f"{BASE_URL}/get-balance"
-        response = requests.post(url, headers=HEADERS, json={"address": args["address"]})
-    elif func_name == "get_utxos":
-        url = f"{BASE_URL}/get-utxos"
-        response = requests.post(url, headers=HEADERS, json={"address": args["address"]})    
+    # Convert func_name to path: replace _ with -, add /
+    path = "/" + func_name.replace("_", "-")
+    url = f"{BASE_URL}{path}?canisterId={CANISTER_ID}"
+    
+    if func_name.startswith("get_"):
+        # For GET queries
+        params = {k: str(v) if isinstance(v, (int, float)) else v for k, v in args.items()}
+        response = requests.get(url, headers=HEADERS, params=params)
     else:
-        raise ValueError(f"Unsupported function call: {func_name}")
+        # For POST updates
+        response = requests.post(url, headers=HEADERS, json=args)
+    
     response.raise_for_status()
     return response.json()
 
@@ -126,7 +404,7 @@ async def process_query(query: str, ctx: Context) -> str:
         messages_history = [initial_message, response_json["choices"][0]["message"]]
 
         if not tool_calls:
-            return "I couldn't determine what Bitcoin information you're looking for. Please try rephrasing your question."
+            return "I couldn't determine what DeForger operation you're requesting. Please try rephrasing your question."
 
         # Step 3: Execute tools and format results
         for tool_call in tool_calls:
@@ -176,7 +454,7 @@ async def process_query(query: str, ctx: Context) -> str:
         return f"An error occurred while processing your request: {str(e)}"
 
 agent = Agent(
-    name='test-ICP-agent',
+    name='deforger-agent',
     port=8001,
     mailbox=True
 )
@@ -229,31 +507,129 @@ if __name__ == "__main__":
 
 
 """
-Queries for /get-balance
-What's the balance of address bc1q8sxznvhualuyyes0ded7kgt33876phpjhp29rs?
+Queries for /register
+Register me with username alice, password secret, name Alice Smith, role Developer, skills python rust, portfolio https://alice.com.
 
-Can you check how many bitcoins are in bc1q8sxznvhualuyyes0ded7kgt33876phpjhp29rs?
+Create a new account: username bob, password pass123, name Bob Johnson, role Designer, skills ui ux, portfolio https://bob.design.
 
-Show me the balance of this Bitcoin wallet: bc1q8sxznvhualuyyes0ded7kgt33876phpjhp29rs.
+Sign up as charlie with password secure, name Charlie Brown, role Manager, skills leadership project-management, portfolio https://charlie.io.
 
-🧾 Queries for /get-utxos
-What UTXOs are available for address bc1q8sxznvhualuyyes0ded7kgt33876phpjhp29rs?
+Queries for /login
+Log me in with username alice and password secret.
 
-List unspent outputs for bc1q8sxznvhualuyyes0ded7kgt33876phpjhp29rs.
+Sign in as bob, password pass123.
 
-Do I have any unspent transactions for bc1q8sxznvhualuyyes0ded7kgt33876phpjhp29rs?
+Authenticate user charlie with password secure.
 
-🧾 Queries for /get-current-fee-percentiles
-What are the current Bitcoin fee percentiles?
+Queries for /change-password
+Change my password to newsecret using token xyz.
 
-Show me the latest fee percentile distribution.
+Update password for current session token abc to supersecure.
 
-How much are the Bitcoin network fees right now?
+Set new password strongpass with token def.
 
-🧾 Queries for /get-p2pkh-address
-What is my canister's P2PKH address?
+Queries for /update-user-profile
+Update my profile: name Alice Updated, role Senior Developer, skills python rust go, portfolio https://alice.updated.com, token xyz.
 
-Generate a Bitcoin address for me.
+Change profile details with token abc: name Bob Revised, role Lead Designer, skills ui ux photoshop, portfolio https://bob.revised.design.
 
-Give me a Bitcoin address I can use to receive coins.
+Modify user info - token def, name Charlie Enhanced, role Project Lead, skills leadership project-management communication, portfolio https://charlie.enhanced.io.
+
+Queries for /create-project
+Create a project named Awesome App, vision Build a revolutionary app, open roles developer "python rust", designer "ui ux", with token xyz.
+
+Start new project: title Game Changer, description Change the gaming world, roles needed engineer "c++ unity", artist "3d modeling", token abc.
+
+Initiate project Eco Friendly, vision Sustainable tech, openRoles manager "leadership", scientist "environmental science", using token def.
+
+Queries for /record-agent-match
+Record match for project 1, user principal-123, role developer, token xyz.
+
+Add agent match: projectId 2, userId principal-456, roleFilled designer, with token abc.
+
+Log agent connection for project 3, matched user principal-789, filling role manager, token def.
+
+Queries for /apply-to-project
+Apply to project 1 with message I have the skills, token xyz.
+
+Submit application for projectId 2, cover letter Excited to join, using token abc.
+
+Send application to project 3: message Let's collaborate, token def.
+
+Queries for /review-application
+Review application 1, accept true, token xyz.
+
+Accept applicationId 2 with token abc.
+
+Reject app 3, accept false, using token def.
+
+Queries for /send-message
+Send message to project 1: Hello team!, token xyz.
+
+Post chat in projectId 2, content Let's discuss ideas, with token abc.
+
+Message project 3: Update on progress, token def.
+
+Queries for /tokenize-project
+Tokenize project 1 with totalShares 1000, pricePerShare 10, token xyz.
+
+Enable tokenization for projectId 2, 500 shares at 5 each, token abc.
+
+Set up shares for project 3: total 2000, price 2, using token def.
+
+Queries for /buy-shares
+Buy 10 shares in project 1, token xyz.
+
+Purchase numShares 5 for projectId 2 with token abc.
+
+Acquire 20 shares of project 3, token def.
+
+Queries for /withdraw-project-funds
+Withdraw funds from project 1, token xyz.
+
+Pull projectId 2 earnings with token abc.
+
+Extract funds for project 3 using token def.
+
+Queries for /get-all-projects
+What are all the projects?
+
+List every project available.
+
+Show me all projects.
+
+Queries for /get-project
+What's the details of project 1?
+
+Get information on projectId 2.
+
+Show project with id 3.
+
+Queries for /get-user-profile
+Get profile for user principal-123.
+
+What's the info on userId principal-456?
+
+Retrieve user profile principal-789.
+
+Queries for /get-project-messages
+What are the messages in project 1?
+
+List chat for projectId 2.
+
+Show messages from project 3.
+
+Queries for /get-all-agent-matches
+What are all agent matches?
+
+List every agent match.
+
+Show all matches.
+
+Queries for /get-project-share-balance
+What's the share balance for user principal-123 in project 1?
+
+Get shares of userId principal-456 in projectId 2.
+
+How many shares does principal-789 have in project 3?
 """
