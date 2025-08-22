@@ -84,7 +84,7 @@ actor DeForger {
     true;
   };
 
-  public shared func login(username : Text, password : Text) : async ?Text {
+  public shared func login(username : Text, password : Text) : async ?Types.LoginResponse {
     switch (usernames.get(username)) {
       case (null) { null };
       case (?id) {
@@ -101,7 +101,7 @@ actor DeForger {
               userCounter += 1;
               let expires = Time.now() + 86_400_000_000_000; // 24 hours (ns)
               sessions.put(token, { userId = profile.id; expires = expires });
-              ?token;
+              ?{ userId = profile.id; token = token };
             };
           };
         };
@@ -643,21 +643,25 @@ actor DeForger {
     let normalizedUrl = Text.trimEnd(parts[0], #text "/");
     switch (req.method, normalizedUrl) {
       case ("POST", "/login") {
-        let ?jsonText = Text.decodeUtf8(req.body) else return makeJsonResponse(400, "{\"error\": \"Invalid body\"}");
-        let #ok(blob) = JSON.fromText(jsonText, null) else return makeJsonResponse(400, "{\"error\": \"Invalid JSON\"}");
-        type LoginReq = { username : Text; password : Text };
-        let loginReqOpt : ?LoginReq = from_candid (blob);
-        switch (loginReqOpt) {
-          case (null) {
-            return makeJsonResponse(400, "{\"error\": \"Missing fields\"}");
-          };
-          case (?loginReq) {
-            let tokenOpt = await login(loginReq.username, loginReq.password);
-            let response = switch (tokenOpt) {
-              case (null) { "{\"error\": \"Invalid credentials\"}" };
-              case (?t) { "{\"token\": \"" # t # "\"}" };
+      let ?jsonText = Text.decodeUtf8(req.body) else return makeJsonResponse(400, "{\"error\": \"Invalid body\"}");
+      let #ok(blob) = JSON.fromText(jsonText, null) else return makeJsonResponse(400, "{\"error\": \"Invalid JSON\"}");
+      
+      type LoginReq = { username : Text; password : Text };
+      let loginReqOpt : ?LoginReq = from_candid (blob);
+      
+      switch (loginReqOpt) {
+        case (null) {
+          return makeJsonResponse(400, "{\"error\": \"Missing fields\"}");
+        };
+        case (?loginReq) {
+          let loginResponseOpt = await login(loginReq.username, loginReq.password);
+          let response = switch (loginResponseOpt) {
+            case (null) { "{\"error\": \"Invalid credentials\"}" };
+            case (?loginResponse) {
+              "{\"userId\": \"" # loginResponse.userId # "\", \"token\": \"" # loginResponse.token # "\"}"
             };
-            makeJsonResponse(200, response);
+          };
+          makeJsonResponse(200, response);
           };
         };
       };

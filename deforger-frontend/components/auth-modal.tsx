@@ -17,7 +17,6 @@ interface AuthModalProps {
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [isSignUp, setIsSignUp] = useState(false)
   const [formData, setFormData] = useState({
-    email: "",
     password: "",
     username: "",
     name: "",
@@ -43,7 +42,6 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
             .map((s) => s.trim())
             .filter(Boolean),
           portfolioUrl: formData.portfolioUrl,
-          email: formData.email,
           password: formData.password,
         })
 
@@ -53,11 +51,11 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           setError("Registration failed. Please try again.")
         }
       } else {
-        const success = await login(formData.email, formData.password)
+        const success = await login(formData.username, formData.password)
         if (success) {
           onClose()
         } else {
-          setError("Invalid credentials. Use deforger@gmail.com / deforger")
+          setError("Invalid credentials. Use deforger / deforger")
         }
       }
     } catch (err) {
@@ -78,9 +76,13 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <Card className="glass-strong w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl gradient-text">{isSignUp ? "Join DeForger" : "Welcome Back"}</CardTitle>
+          <CardTitle className="text-2xl gradient-text">
+            {isSignUp ? "Join DeForger" : "Welcome Back"}
+          </CardTitle>
           <CardDescription>
-            {isSignUp ? "Create your account to start building the future" : "Sign in to your account"}
+            {isSignUp
+              ? "Create your account to start building the future"
+              : "Sign in to your account"}
           </CardDescription>
         </CardHeader>
 
@@ -93,14 +95,13 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="username">Username</Label>
               <Input
-                id="email"
-                name="email"
-                type="email"
-                value={formData.email}
+                id="username"
+                name="username"
+                value={formData.username}
                 onChange={handleInputChange}
-                placeholder="your@email.com"
+                placeholder="your_username"
                 required
               />
             </div>
@@ -120,18 +121,6 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
             {isSignUp && (
               <>
-                <div className="space-y-2">
-                  <Label htmlFor="username">Username</Label>
-                  <Input
-                    id="username"
-                    name="username"
-                    value={formData.username}
-                    onChange={handleInputChange}
-                    placeholder="your_username"
-                    required
-                  />
-                </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="name">Full Name</Label>
                   <Input
@@ -187,7 +176,11 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
               className="w-full gradient-primary text-white hover:opacity-90 transition-opacity"
               disabled={isLoading}
             >
-              {isLoading ? "Please wait..." : isSignUp ? "Create Account" : "Sign In"}
+              {isLoading
+                ? "Please wait..."
+                : isSignUp
+                ? "Create Account"
+                : "Sign In"}
             </Button>
           </form>
 
@@ -197,17 +190,33 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
               onClick={() => setIsSignUp(!isSignUp)}
               className="text-accent hover:text-accent/80 transition-colors"
             >
-              {isSignUp ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
+              {isSignUp
+                ? "Already have an account? Sign in"
+                : "Don't have an account? Sign up"}
             </button>
           </div>
 
-          <Button variant="ghost" onClick={onClose} className="absolute top-4 right-4 p-2">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <Button
+            variant="ghost"
+            onClick={onClose}
+            className="absolute top-4 right-4 p-2"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </Button>
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

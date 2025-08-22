@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/card";
 import { mockProjects } from "@/lib/mock-data";
 import { UserProfile } from "@/lib/types";
-import { makeBackendActor } from "@/utils/service/actor-locator"
+import { makeBackendActor } from "@/utils/service/actor-locator";
 
 type AuthContextType = {
   user: UserProfile | null;
@@ -86,11 +86,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const result = await backendActor.login(username, password);
       if (result.length > 0) {
-        const userId = result[0];
+        const { userId, token } = result[0];
         const profile = await backendActor.getUserProfile(userId);
         if (profile.length > 0) {
           setUser(profile[0]);
           localStorage.setItem("userId", userId);
+          localStorage.setItem("sessionToken", token);
           return true;
         }
       }
@@ -118,18 +119,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         data.skills,
         data.portfolioUrl
       );
+
       if (success) {
         const result = await backendActor.login(data.username, data.password);
+
         if (result.length > 0) {
-          const userId = result[0];
+          const { userId, token } = result[0];
           const profile = await backendActor.getUserProfile(userId);
+
           if (profile.length > 0) {
             setUser(profile[0]);
             localStorage.setItem("userId", userId);
+            localStorage.setItem("sessionToken", token);
             return true;
           }
         }
       }
+
+      console.error("Registration flow failed at some point.");
       return false;
     } catch (error) {
       console.error("Registration error:", error);
