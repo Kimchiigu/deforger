@@ -1,0 +1,12 @@
+[dependencies]
+serde = "3.3.2"
+base = "0.15.1"
+itertools = "0.2.2"
+candid = "2.0.0"
+xtended-numbers = "2.0.0"
+cbor = "4.0.0"
+map = "9.0.1"
+sha2 = "0.1.6"
+fuzz = "1.0.0"
+byte-utils = "0.1.1"
+hex = "1.0.1"
