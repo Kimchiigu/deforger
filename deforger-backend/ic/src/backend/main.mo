@@ -1,14 +1,11 @@
 import Buffer "mo:base/Buffer";
 import HashMap "mo:base/HashMap";
-import Principal "mo:base/Principal";
 import Text "mo:base/Text";
 import Time "mo:base/Time";
 import Blob "mo:base/Blob";
 import Nat "mo:base/Nat";
-import Nat8 "mo:base/Nat8";
 import Nat16 "mo:base/Nat16";
 import Nat32 "mo:base/Nat32";
-import Nat64 "mo:base/Nat64";
 import Array "mo:base/Array";
 import Iter "mo:base/Iter";
 import Result "mo:base/Result";
@@ -21,35 +18,27 @@ import Hex "mo:hex";
 import Types "./Types";
 
 actor DeForger {
-  // Custom hashing functions to resolve dependency conflicts
-  private func customPrincipalHash(p : Principal) : Nat32 {
-    let blob = Principal.toBlob(p);
-    var hash : Nat = 0;
-    for (byte in blob.vals()) {
-      hash := (hash * 31 + Nat8.toNat(byte)) % 1_000_000_007;
-    };
-    return Nat32.fromNat(hash);
-  };
-
-  private func customNatHash(n : Nat) : Nat32 {
-    return Nat32.fromNat(n);
+  // Custom hashing functions
+  private func natHash(n : Nat) : Nat32 {
+    Nat32.fromNat(n);
   };
 
   // State
+  private var userIdCounter : Nat = 0;
   private var userCounter : Nat = 0;
-  private var users : HashMap.HashMap<Text, Types.UserProfile> = HashMap.HashMap<Text, Types.UserProfile>(0, Text.equal, Text.hash);
-  private var idToUsername : HashMap.HashMap<Principal, Text> = HashMap.HashMap<Principal, Text>(0, Principal.equal, customPrincipalHash);
+  private var users : HashMap.HashMap<Text, Types.UserProfile> = HashMap.HashMap<Text, Types.UserProfile>(0, Text.equal, Text.hash); // Keyed by userId
+  private var usernames : HashMap.HashMap<Text, Text> = HashMap.HashMap<Text, Text>(0, Text.equal, Text.hash); // username -> userId
   private var sessions : HashMap.HashMap<Text, Types.Session> = HashMap.HashMap<Text, Types.Session>(0, Text.equal, Text.hash);
   private var projectCounter : Nat = 0;
-  private var projects : HashMap.HashMap<Nat, Types.Project> = HashMap.HashMap<Nat, Types.Project>(0, Nat.equal, customNatHash);
+  private var projects : HashMap.HashMap<Nat, Types.Project> = HashMap.HashMap<Nat, Types.Project>(0, Nat.equal, natHash);
   private var agentMatchCounter : Nat = 0;
   private var agentMatches : Buffer.Buffer<Types.AgentMatch> = Buffer.Buffer<Types.AgentMatch>(0);
   private var applicationCounter : Nat = 0;
   private var messageCounter : Nat = 0;
-  private var messages : HashMap.HashMap<Nat, Buffer.Buffer<Types.ChatMessage>> = HashMap.HashMap<Nat, Buffer.Buffer<Types.ChatMessage>>(0, Nat.equal, customNatHash);
+  private var messages : HashMap.HashMap<Nat, Buffer.Buffer<Types.ChatMessage>> = HashMap.HashMap<Nat, Buffer.Buffer<Types.ChatMessage>>(0, Nat.equal, natHash);
 
   // Helper functions
-  private func validateToken(token : Text) : ?Principal {
+  private func validateToken(token : Text) : ?Text {
     switch (sessions.get(token)) {
       case (null) { null };
       case (?sess) {
@@ -72,16 +61,17 @@ actor DeForger {
   };
 
   // Public methods
-  public shared (msg) func register(username : Text, password : Text, name : Text, role : Text, skills : [Text], portfolioUrl : Text) : async Bool {
-    if (users.get(username) != null) { return false };
+  public shared func register(username : Text, password : Text, name : Text, role : Text, skills : [Text], portfolioUrl : Text) : async Bool {
+    if (usernames.get(username) != null) { return false };
+    userIdCounter += 1;
+    let id = "user-" # Nat.toText(userIdCounter);
     let salt = Text.encodeUtf8(username);
     let passBlob = Text.encodeUtf8(password);
     let saltedPassword = Blob.fromArray(Array.append(Blob.toArray(salt), Blob.toArray(passBlob)));
     let hashBlob = Sha256.fromBlob(#sha256, saltedPassword);
     let hash = blobToHex(hashBlob);
-    let userId = msg.caller;
     let profile : Types.UserProfile = {
-      id = userId;
+      id = id;
       username = username;
       passwordHash = hash;
       name = name;
@@ -89,26 +79,31 @@ actor DeForger {
       skills = skills;
       portfolioUrl = portfolioUrl;
     };
-    users.put(username, profile);
-    idToUsername.put(userId, username);
+    users.put(id, profile);
+    usernames.put(username, id);
     true;
   };
 
   public shared func login(username : Text, password : Text) : async ?Text {
-    switch (users.get(username)) {
+    switch (usernames.get(username)) {
       case (null) { null };
-      case (?profile) {
-        let salt = Text.encodeUtf8(username);
-        let passBlob = Text.encodeUtf8(password);
-        let saltedPassword = Blob.fromArray(Array.append(Blob.toArray(salt), Blob.toArray(passBlob)));
-        let hashBlob = Sha256.fromBlob(#sha256, saltedPassword);
-        let hash = blobToHex(hashBlob);
-        if (hash != profile.passwordHash) { null } else {
-          let token = "session-" # Nat.toText(userCounter) # "-" # Int.toText(Time.now());
-          userCounter += 1;
-          let expires = Time.now() + 86_400_000_000_000; // 24 hours (ns)
-          sessions.put(token, { userId = profile.id; expires = expires });
-          ?token;
+      case (?id) {
+        switch (users.get(id)) {
+          case (null) { null };
+          case (?profile) {
+            let salt = Text.encodeUtf8(username);
+            let passBlob = Text.encodeUtf8(password);
+            let saltedPassword = Blob.fromArray(Array.append(Blob.toArray(salt), Blob.toArray(passBlob)));
+            let hashBlob = Sha256.fromBlob(#sha256, saltedPassword);
+            let hash = blobToHex(hashBlob);
+            if (hash != profile.passwordHash) { null } else {
+              let token = "session-" # Nat.toText(userCounter) # "-" # Int.toText(Time.now());
+              userCounter += 1;
+              let expires = Time.now() + 86_400_000_000_000; // 24 hours (ns)
+              sessions.put(token, { userId = profile.id; expires = expires });
+              ?token;
+            };
+          };
         };
       };
     };
@@ -118,15 +113,15 @@ actor DeForger {
     switch (validateToken(token)) {
       case (null) { false };
       case (?userId) {
-        let ?username = idToUsername.get(userId) else return false;
-        let ?profile = users.get(username) else return false;
+        let ?profile = users.get(userId) else return false;
+        let username = profile.username;
         let salt = Text.encodeUtf8(username);
         let passBlob = Text.encodeUtf8(newPassword);
         let saltedPassword = Blob.fromArray(Array.append(Blob.toArray(salt), Blob.toArray(passBlob)));
         let newHashBlob = Sha256.fromBlob(#sha256, saltedPassword);
         let newHash = blobToHex(newHashBlob);
         let updated = { profile with passwordHash = newHash };
-        users.put(username, updated);
+        users.put(userId, updated);
         true;
       };
     };
@@ -136,15 +131,14 @@ actor DeForger {
     switch (validateToken(token)) {
       case (null) { false };
       case (?userId) {
-        let ?username = idToUsername.get(userId) else return false;
-        let ?profile = users.get(username) else return false;
+        let ?profile = users.get(userId) else return false;
         let updated = {
           profile with name = name;
           role = role;
           skills = skills;
           portfolioUrl = portfolioUrl;
         };
-        users.put(username, updated);
+        users.put(userId, updated);
         true;
       };
     };
@@ -156,9 +150,9 @@ actor DeForger {
       case (?owner) {
         projectCounter += 1;
         let id = projectCounter;
-        let team = Buffer.Buffer<Principal>(1);
+        let team = Buffer.Buffer<Text>(1);
         team.add(owner);
-        let shareBalances = HashMap.HashMap<Principal, Nat>(0, Principal.equal, customPrincipalHash);
+        let shareBalances = HashMap.HashMap<Text, Nat>(0, Text.equal, Text.hash);
         let project : Types.Project = {
           id;
           owner;
@@ -179,12 +173,12 @@ actor DeForger {
     };
   };
 
-  public shared func recordAgentMatch(token : Text, projectId : Nat, userId : Principal, roleFilled : Text) : async Bool {
+  public shared func recordAgentMatch(token : Text, projectId : Nat, userId : Text, roleFilled : Text) : async Bool {
     switch (validateToken(token)) {
       case (null) { false };
       case (?caller) {
         let ?project = projects.get(projectId) else return false;
-        if (not Buffer.contains<Principal>(project.team, userId, Principal.equal)) {
+        if (not Buffer.contains<Text>(project.team, userId, Text.equal)) {
           project.team.add(userId);
         };
         let newOpenRoles = Buffer.Buffer<Types.RoleRequirement>(0);
@@ -201,7 +195,7 @@ actor DeForger {
         let match_ : Types.AgentMatch = {
           matchId = agentMatchCounter;
           projectId;
-          userId = Principal.toText(userId);
+          userId;
           roleFilled;
           timestamp = Time.now();
         };
@@ -219,20 +213,20 @@ actor DeForger {
         false;
       };
       case (?applicant) {
-        Debug.print("Applicant: " # Principal.toText(applicant));
+        Debug.print("Applicant: " # applicant);
         let ?project = projects.get(projectId) else {
           Debug.print("Project not found for ID: " # Nat.toText(projectId));
           return false;
         };
         Debug.print("Project found, checking team membership");
-        if (Buffer.contains<Principal>(project.team, applicant, Principal.equal)) {
+        if (Buffer.contains<Text>(project.team, applicant, Text.equal)) {
           Debug.print("Applicant already in team");
           return false;
         };
         applicationCounter += 1;
         let app : Types.Application = {
           id = applicationCounter;
-          applicant = Principal.toText(applicant);
+          applicant = applicant;
           projectId;
           message;
           status = "pending";
@@ -266,11 +260,12 @@ actor DeForger {
         if (not found) { return false };
         let ?app = appFound else return false;
         let ?proj = projects.get(app.projectId) else return false;
+        let ?idx = index else return false; // Added safe unwrap to fix warning
         let status = if (accept) "accepted" else "rejected";
         let updatedApp = { app with status = status };
-        ignore do ? { proj.applications.put(index!, updatedApp) };
+        ignore do ? { proj.applications.put(idx, updatedApp) };
         if (accept) {
-          proj.team.add(Principal.fromText(app.applicant));
+          proj.team.add(app.applicant);
         };
         true;
       };
@@ -282,14 +277,14 @@ actor DeForger {
       case (null) { false };
       case (?sender) {
         let ?project = projects.get(projectId) else return false;
-        if (not Buffer.contains<Principal>(project.team, sender, Principal.equal)) {
+        if (not Buffer.contains<Text>(project.team, sender, Text.equal)) {
           return false;
         };
         messageCounter += 1;
         let msg : Types.ChatMessage = {
           id = messageCounter;
           projectId;
-          sender = Principal.toText(sender);
+          sender = sender;
           content;
           timestamp = Time.now();
         };
@@ -358,57 +353,10 @@ actor DeForger {
   };
 
   // Internal non-async query functions
-  private func getUserProfileInternal(userId : Principal) : ?Types.PublicUserProfile {
-    let ?username = idToUsername.get(userId) else return null;
-    let ?profile = users.get(username) else return null;
-    ?{
-      id = Principal.toText(profile.id);
-      username = profile.username;
-      name = profile.name;
-      role = profile.role;
-      skills = profile.skills;
-      portfolioUrl = profile.portfolioUrl;
-    };
-  };
-
-  private func getProjectInternal(projectId : Nat) : ?Types.PublicProject {
-    let ?project = projects.get(projectId) else return null;
-    let shareBalancesText = Buffer.Buffer<(Text, Nat)>(project.shareBalances.size());
-    for ((principal, shares) in project.shareBalances.entries()) {
-      shareBalancesText.add((Principal.toText(principal), shares));
-    };
-    let applicationsText = Buffer.Buffer<Types.Application>(project.applications.size());
-    for (app in project.applications.vals()) {
-      applicationsText.add({
-        id = app.id;
-        applicant = app.applicant;
-        projectId = app.projectId;
-        message = app.message;
-        status = app.status;
-      });
-    };
-    ?{
-      id = project.id;
-      owner = Principal.toText(project.owner);
-      name = project.name;
-      vision = project.vision;
-      team = Array.map<Principal, Text>(Buffer.toArray(project.team), Principal.toText);
-      openRoles = Buffer.toArray(project.openRoles);
-      applications = Buffer.toArray(applicationsText);
-      isTokenized = project.isTokenized;
-      totalShares = project.totalShares;
-      availableShares = project.availableShares;
-      pricePerShare = project.pricePerShare;
-      shareBalances = Buffer.toArray(shareBalancesText);
-    };
-  };
-
-  private func getAllProjectsInternal() : [Types.PublicProject] {
-    let buf = Buffer.Buffer<Types.PublicProject>(projects.size());
-    for (p in projects.vals()) {
+  private func projectToPublic(p : Types.Project) : Types.PublicProject {
       let shareBalancesText = Buffer.Buffer<(Text, Nat)>(p.shareBalances.size());
-      for ((principal, shares) in p.shareBalances.entries()) {
-        shareBalancesText.add((Principal.toText(principal), shares));
+      for ((key, shares) in p.shareBalances.entries()) {
+        shareBalancesText.add((key, shares));
       };
       let applicationsText = Buffer.Buffer<Types.Application>(p.applications.size());
       for (app in p.applications.vals()) {
@@ -420,12 +368,12 @@ actor DeForger {
           status = app.status;
         });
       };
-      buf.add({
+      {
         id = p.id;
-        owner = Principal.toText(p.owner);
+        owner = p.owner;
         name = p.name;
         vision = p.vision;
-        team = Array.map<Principal, Text>(Buffer.toArray(p.team), Principal.toText);
+        team = Buffer.toArray(p.team);
         openRoles = Buffer.toArray(p.openRoles);
         applications = Buffer.toArray(applicationsText);
         isTokenized = p.isTokenized;
@@ -433,7 +381,30 @@ actor DeForger {
         availableShares = p.availableShares;
         pricePerShare = p.pricePerShare;
         shareBalances = Buffer.toArray(shareBalancesText);
-      });
+      };
+  };
+  
+  private func getUserProfileInternal(userId : Text) : ?Types.PublicUserProfile {
+    let ?profile = users.get(userId) else return null;
+    ?{
+      id = profile.id;
+      username = profile.username;
+      name = profile.name;
+      role = profile.role;
+      skills = profile.skills;
+      portfolioUrl = profile.portfolioUrl;
+    };
+  };
+
+  private func getProjectInternal(projectId : Nat) : ?Types.PublicProject {
+    let ?project = projects.get(projectId) else return null;
+    ?projectToPublic(project);
+  };
+
+  private func getAllProjectsInternal() : [Types.PublicProject] {
+    let buf = Buffer.Buffer<Types.PublicProject>(projects.size());
+    for (p in projects.vals()) {
+      buf.add(projectToPublic(p));
     };
     Buffer.toArray(buf);
   };
@@ -471,13 +442,38 @@ actor DeForger {
     Buffer.toArray(buf);
   };
 
-  private func getProjectShareBalanceInternal(projectId : Nat, userId : Principal) : Nat {
+  private func getProjectShareBalanceInternal(projectId : Nat, userId : Text) : Nat {
     let ?project = projects.get(projectId) else return 0;
     Option.get(project.shareBalances.get(userId), 0);
   };
 
+  private func getMatchingProjectsInternal(userId : Text) : [Types.PublicProject] {
+      let ?userProfile = users.get(userId) else return [];
+      let userSkills = userProfile.skills;
+      let matchingProjects = Buffer.Buffer<Types.PublicProject>(0);
+
+      for (project in projects.vals()) {
+          var isMatch = false;
+          label projectLoop for (role in project.openRoles.vals()) {
+              for (requiredSkill in role.requiredSkills.vals()) {
+                  for (userSkill in userSkills.vals()) {
+                      if (userSkill == requiredSkill) {
+                          isMatch := true;
+                          break projectLoop;
+                      };
+                  };
+              };
+          };
+
+          if (isMatch) {
+              matchingProjects.add(projectToPublic(project));
+          };
+      };
+      Buffer.toArray(matchingProjects);
+  };
+
   // Read-Only Queries
-  public query func getUserProfile(userId : Principal) : async ?Types.PublicUserProfile {
+  public query func getUserProfile(userId : Text) : async ?Types.PublicUserProfile {
     getUserProfileInternal(userId);
   };
 
@@ -497,8 +493,17 @@ actor DeForger {
     getAllAgentMatchesInternal();
   };
 
-  public query func getProjectShareBalance(projectId : Nat, userId : Principal) : async Nat {
+  public query func getProjectShareBalance(projectId : Nat, userId : Text) : async Nat {
     getProjectShareBalanceInternal(projectId, userId);
+  };
+
+  public query func getMatchingProjects(token : Text) : async [Types.PublicProject] {
+      switch (validateToken(token)) {
+          case (null) { [] };
+          case (?userId) {
+              getMatchingProjectsInternal(userId);
+          };
+      };
   };
 
   // HTTP handling
@@ -546,20 +551,15 @@ actor DeForger {
       case ("GET") {
         switch (normalizedPath) {
           case ("/get-all-projects") {
-            Debug.print("Fetching all projects");
             let allProjects = getAllProjectsInternal();
-            Debug.print("Projects fetched: " # Nat.toText(allProjects.size()));
             let blob = to_candid (allProjects);
-            Debug.print("Candid blob created");
             let keys = [];
             let result = JSON.toText(blob, keys, null);
             switch (result) {
               case (#ok(jsonText)) {
-                Debug.print("Serialization successful: " # jsonText);
                 makeJsonResponse(200, jsonText);
               };
               case (#err(msg)) {
-                Debug.print("Serialization failed: " # msg);
                 makeSerializationErrorResponse();
               };
             };
@@ -575,7 +575,7 @@ actor DeForger {
           };
           case ("/get-user-profile") {
             let ?userIdText = params.get("userId") else return makeJsonResponse(400, "{\"error\": \"Missing userId\"}");
-            let userId = Principal.fromText(userIdText);
+            let userId = userIdText;
             let profileOpt = getUserProfileInternal(userId);
             let blob = to_candid (profileOpt);
             let keys = [];
@@ -602,10 +602,21 @@ actor DeForger {
             let ?projectIdText = params.get("projectId") else return makeJsonResponse(400, "{\"error\": \"Missing projectId\"}");
             let ?projectId = Nat.fromText(projectIdText) else return makeJsonResponse(400, "{\"error\": \"Invalid projectId\"}");
             let ?userIdText = params.get("userId") else return makeJsonResponse(400, "{\"error\": \"Missing userId\"}");
-            let userId = Principal.fromText(userIdText);
+            let userId = userIdText;
             let bal = getProjectShareBalanceInternal(projectId, userId);
             let jsonText = "{\"balance\": " # Nat.toText(bal) # "}";
             makeJsonResponse(200, jsonText);
+          };
+          case ("/get-matching-projects") {
+              let ?token = params.get("token") else return makeJsonResponse(400, "{\"error\": \"Missing token\"}");
+              let projects = switch(validateToken(token)) {
+                case(null) { [] };
+                case(?userId) { getMatchingProjectsInternal(userId) };
+              };
+              let blob = to_candid (projects);
+              let keys = [];
+              let #ok(jsonText) = JSON.toText(blob, keys, null) else return makeSerializationErrorResponse();
+              makeJsonResponse(200, jsonText);
           };
           case _ {
             makeJsonResponse(404, "{\"error\": \"Not found\"}");
@@ -628,10 +639,8 @@ actor DeForger {
   };
 
   public shared func http_request_update(req : Types.HttpRequest) : async Types.HttpResponse {
-    Debug.print("http_request_update called with method: " # req.method # ", URL: " # req.url);
     let parts = Iter.toArray(Text.split(req.url, #char '?'));
     let normalizedUrl = Text.trimEnd(parts[0], #text "/");
-    Debug.print("Normalized URL: " # normalizedUrl);
     switch (req.method, normalizedUrl) {
       case ("POST", "/login") {
         let ?jsonText = Text.decodeUtf8(req.body) else return makeJsonResponse(400, "{\"error\": \"Invalid body\"}");
@@ -755,16 +764,7 @@ actor DeForger {
             return makeJsonResponse(400, "{\"error\": \"Missing fields\"}");
           };
           case (?reqData) {
-            let userIdResult = try {
-              #ok(Principal.fromText(reqData.userId));
-            } catch (e) {
-              #err("Invalid userId");
-            };
-            let userId = switch (userIdResult) {
-              case (#ok(p)) p;
-              case (#err(e)) return makeJsonResponse(400, "{\"error\": \"" # e # "\"}");
-            };
-            let success = await recordAgentMatch(reqData.token, reqData.projectId, userId, reqData.roleFilled);
+            let success = await recordAgentMatch(reqData.token, reqData.projectId, reqData.userId, reqData.roleFilled);
             let response = if (success) { "{\"success\": true}" } else {
               "{\"error\": \"Failed\"}";
             };

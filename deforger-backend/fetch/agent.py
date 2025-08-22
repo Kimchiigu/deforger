@@ -149,7 +149,7 @@ tools = [
                 "properties": {
                     "token": {"type": "string", "description": "Session token."},
                     "projectId": {"type": "number", "description": "Project ID."},
-                    "userId": {"type": "string", "description": "User Principal as string."},
+                    "userId": {"type": "string", "description": "User ID."},
                     "roleFilled": {"type": "string", "description": "Role filled."}
                 },
                 "required": ["token", "projectId", "userId", "roleFilled"],
@@ -186,7 +186,7 @@ tools = [
                 "properties": {
                     "token": {"type": "string", "description": "Session token."},
                     "applicationId": {"type": "number", "description": "Application ID."},
-                    "accept": {"type": "boolean", "description": "Accept or reject."}
+                    "accept": {"type": "string", "enum": ["true", "false"], "description": "Accept or reject ('true' or 'false')."}
                 },
                 "required": ["token", "applicationId", "accept"],
                 "additionalProperties": False
@@ -304,7 +304,7 @@ tools = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "userId": {"type": "string", "description": "User Principal as string."}
+                    "userId": {"type": "string", "description": "User ID."}
                 },
                 "required": ["userId"],
                 "additionalProperties": False
@@ -351,9 +351,25 @@ tools = [
                 "type": "object",
                 "properties": {
                     "projectId": {"type": "number", "description": "Project ID."},
-                    "userId": {"type": "string", "description": "User Principal as string."}
+                    "userId": {"type": "string", "description": "User ID."}
                 },
                 "required": ["projectId", "userId"],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_matching_projects",
+            "description": "Retrieves projects that match the authenticated user's skills.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "token": {"type": "string", "description": "Session token."}
+                },
+                "required": ["token"],
                 "additionalProperties": False
             },
             "strict": True
@@ -543,18 +559,18 @@ Start new project: title Game Changer, description Change the gaming world, role
 Initiate project Eco Friendly, vision Sustainable tech, openRoles manager "leadership", scientist "environmental science", using token def.
 
 Queries for /record-agent-match
-Record match for project 1, user principal-123, role developer, token xyz.
+Record match for project 1, user user-1, role developer, token xyz.
 
-Add agent match: projectId 2, userId principal-456, roleFilled designer, with token abc.
+Add agent match: projectId 2, userId user-2, roleFilled designer, with token abc.
 
-Log agent connection for project 3, matched user principal-789, filling role manager, token def.
+Log agent connection for project 3, matched user user-3, filling role manager, token def.
 
 Queries for /apply-to-project
 Apply to project 1 with message I have the skills, token xyz.
 
 Submit application for projectId 2, cover letter Excited to join, using token abc.
 
-Send application to project 3: message Let's collaborate, token def.
+Send application to project 3: message Lets collaborate, token def.
 
 Queries for /review-application
 Review application 1, accept true, token xyz.
@@ -566,7 +582,7 @@ Reject app 3, accept false, using token def.
 Queries for /send-message
 Send message to project 1: Hello team!, token xyz.
 
-Post chat in projectId 2, content Let's discuss ideas, with token abc.
+Post chat in projectId 2, content Lets discuss ideas, with token abc.
 
 Message project 3: Update on progress, token def.
 
@@ -599,18 +615,18 @@ List every project available.
 Show me all projects.
 
 Queries for /get-project
-What's the details of project 1?
+Whats the details of project 1?
 
 Get information on projectId 2.
 
 Show project with id 3.
 
 Queries for /get-user-profile
-Get profile for user principal-123.
+Get profile for user user-1.
 
-What's the info on userId principal-456?
+Whats the info on userId user-2?
 
-Retrieve user profile principal-789.
+Retrieve user profile user-3.
 
 Queries for /get-project-messages
 What are the messages in project 1?
@@ -627,9 +643,16 @@ List every agent match.
 Show all matches.
 
 Queries for /get-project-share-balance
-What's the share balance for user principal-123 in project 1?
+Whats the share balance for user user-1 in project 1?
 
-Get shares of userId principal-456 in projectId 2.
+Get shares of userId user-2 in projectId 2.
 
-How many shares does principal-789 have in project 3?
+How many shares does user-3 have in project 3?
+
+Queries for /get-matching-projects
+Show me projects that match my skills with token xyz.
+
+What projects can I join based on my skills, token abc.
+
+Recommended projects for me, using token def.
 """
