@@ -15,7 +15,7 @@ interface TokenizationModalProps {
   onTokenize: (tokenData: TokenizationData) => void
 }
 
-interface TokenizationData {
+export interface TokenizationData {
   totalShares: number
   pricePerShare: number
   ownerShares: number
@@ -64,14 +64,18 @@ export function TokenizationModal({ isOpen, onClose, projectName, onTokenize }: 
       <Card className="glass-strong w-full max-w-lg">
         <CardHeader>
           <CardTitle className="gradient-text">Tokenize Project</CardTitle>
-          <CardDescription>Transform {projectName} into a tradeable asset with shared ownership</CardDescription>
+          <CardDescription>
+            Transform {projectName} into a tradeable asset with shared ownership
+          </CardDescription>
         </CardHeader>
 
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Tokenization Benefits */}
             <div className="p-4 rounded-lg bg-accent/10 border border-accent/20">
-              <h4 className="font-medium text-accent mb-2">Benefits of Tokenization</h4>
+              <h4 className="font-medium text-accent mb-2">
+                Benefits of Tokenization
+              </h4>
               <ul className="text-sm text-muted-foreground space-y-1">
                 <li>• Enable community investment and shared ownership</li>
                 <li>• Create liquid markets for project equity</li>
@@ -91,65 +95,69 @@ export function TokenizationModal({ isOpen, onClose, projectName, onTokenize }: 
                     type="number"
                     value={formData.totalShares}
                     onChange={handleInputChange}
-                    placeholder="10000"
-                    min="1000"
-                    max="1000000"
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="pricePerShare">Price per Share (ETH)</Label>
+                  <Label htmlFor="pricePerShare">Price per Share (ICP)</Label>
                   <Input
                     id="pricePerShare"
                     name="pricePerShare"
                     type="number"
-                    step="0.001"
+                    step="0.1"
                     value={formData.pricePerShare}
                     onChange={handleInputChange}
-                    placeholder="0.1"
-                    min="0.001"
-                    max="10"
                     required
                   />
                 </div>
               </div>
-
               <div className="space-y-2">
-                <Label htmlFor="ownerShares">Your Shares (as project owner)</Label>
+                <Label htmlFor="ownerShares">
+                  Your Shares (as project owner)
+                </Label>
                 <Input
                   id="ownerShares"
                   name="ownerShares"
                   type="number"
                   value={formData.ownerShares}
                   onChange={handleInputChange}
-                  placeholder="5000"
-                  min="1"
                   max={formData.totalShares}
                   required
                 />
               </div>
             </div>
 
-            {/* Token Summary */}
             <div className="p-4 rounded-lg border border-white/10 space-y-3">
-              <h4 className="font-medium text-foreground">Tokenization Summary</h4>
+              <h4 className="font-medium text-foreground">
+                Tokenization Summary
+              </h4>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-muted-foreground">Total Market Cap</p>
-                  <p className="font-semibold text-foreground">{totalValue.toFixed(3)} ETH</p>
+                  <p className="font-semibold text-foreground">
+                    {totalValue.toLocaleString()} ICP
+                  </p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Your Holdings</p>
-                  <p className="font-semibold text-foreground">{ownerValue.toFixed(3)} ETH</p>
+                  <p className="font-semibold text-foreground">
+                    {ownerValue.toLocaleString()} ICP
+                  </p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Available for Sale</p>
-                  <p className="font-semibold text-foreground">{availableShares.toLocaleString()} shares</p>
+                  <p className="font-semibold text-foreground">
+                    {availableShares.toLocaleString()} shares
+                  </p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Your Ownership</p>
                   <p className="font-semibold text-foreground">
-                    {((Number.parseInt(formData.ownerShares) / Number.parseInt(formData.totalShares)) * 100).toFixed(1)}
+                    {(
+                      (Number.parseInt(formData.ownerShares) /
+                        Number.parseInt(formData.totalShares)) *
+                      100
+                    ).toFixed(1)}
                     %
                   </p>
                 </div>
@@ -159,7 +167,12 @@ export function TokenizationModal({ isOpen, onClose, projectName, onTokenize }: 
             {/* Warning */}
             <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20">
               <div className="flex items-start space-x-2">
-                <svg className="w-5 h-5 text-destructive mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg
+                  className="w-5 h-5 text-destructive mt-0.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -168,10 +181,12 @@ export function TokenizationModal({ isOpen, onClose, projectName, onTokenize }: 
                   />
                 </svg>
                 <div>
-                  <p className="text-sm font-medium text-destructive">Important Notice</p>
+                  <p className="text-sm font-medium text-destructive">
+                    Important Notice
+                  </p>
                   <p className="text-sm text-muted-foreground">
-                    Tokenization is irreversible. Once created, project tokens will be governed by smart contracts and
-                    community decisions.
+                    Tokenization is irreversible. Once created, project tokens
+                    will be governed by smart contracts and community decisions.
                   </p>
                 </div>
               </div>
@@ -199,5 +214,5 @@ export function TokenizationModal({ isOpen, onClose, projectName, onTokenize }: 
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

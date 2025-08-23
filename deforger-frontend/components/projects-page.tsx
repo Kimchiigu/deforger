@@ -1,81 +1,96 @@
-"use client"
+"use client";
 
-import { useState, useMemo } from "react"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { ProjectCard } from "@/components/project-card"
-import { mockProjects } from "@/lib/mock-data"
+import { useState, useMemo, useEffect } from "react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ProjectCard } from "@/components/project-card";
+import { backendActor } from "@/utils/service/actor-locator";
+import { Project } from "@/lib/types";
 
 interface ProjectsPageProps {
-  onViewProject: (projectId: number) => void
+  onViewProject: (projectId: number) => void;
 }
 
 export function ProjectsPage({ onViewProject }: ProjectsPageProps) {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedSkills, setSelectedSkills] = useState<string[]>([])
-  const [showTokenizedOnly, setShowTokenizedOnly] = useState(false)
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [showTokenizedOnly, setShowTokenizedOnly] = useState(false);
 
-  // Get all unique skills from projects
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const projectsResult = await backendActor.getAllProjects();
+        const formattedProjects = projectsResult.map((p: any) => ({
+          ...p,
+          id: Number(p.id),
+          totalShares: Number(p.totalShares),
+          availableShares: Number(p.availableShares),
+          pricePerShare: Number(p.pricePerShare),
+          shareBalances: p.shareBalances.map(
+            ([id, balance]: [string, bigint]) => [id, Number(balance)]
+          ),
+        }));
+        setAllProjects(formattedProjects);
+      } catch (error) {
+        console.error("Failed to fetch projects:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchProjects();
+  }, []);
+
   const allSkills = useMemo(() => {
-    const skills = new Set<string>()
-    mockProjects.forEach((project) => {
+    const skills = new Set<string>();
+    allProjects.forEach((project) => {
       project.openRoles.forEach((role) => {
-        role.requiredSkills.forEach((skill) => skills.add(skill))
-      })
-    })
-    return Array.from(skills).sort()
-  }, [])
+        role.requiredSkills.forEach((skill) => skills.add(skill));
+      });
+    });
+    return Array.from(skills).sort();
+  }, [allProjects]);
 
-  // Filter projects based on search and filters
   const filteredProjects = useMemo(() => {
-    return mockProjects.filter((project) => {
-      // Search filter
+    return allProjects.filter((project) => {
       const matchesSearch =
         searchQuery === "" ||
         project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        project.vision.toLowerCase().includes(searchQuery.toLowerCase())
+        project.vision.toLowerCase().includes(searchQuery.toLowerCase());
 
-      // Skills filter
       const matchesSkills =
         selectedSkills.length === 0 ||
-        selectedSkills.some((skill) => project.openRoles.some((role) => role.requiredSkills.includes(skill)))
+        selectedSkills.some((skill) =>
+          project.openRoles.some((role) => role.requiredSkills.includes(skill))
+        );
 
-      // Tokenization filter
-      const matchesTokenization = !showTokenizedOnly || project.isTokenized
+      const matchesTokenization = !showTokenizedOnly || project.isTokenized;
 
-      return matchesSearch && matchesSkills && matchesTokenization
-    })
-  }, [searchQuery, selectedSkills, showTokenizedOnly])
+      return matchesSearch && matchesSkills && matchesTokenization;
+    });
+  }, [searchQuery, selectedSkills, showTokenizedOnly, allProjects]);
 
   const toggleSkill = (skill: string) => {
-    setSelectedSkills((prev) => (prev.includes(skill) ? prev.filter((s) => s !== skill) : [...prev, skill]))
-  }
+    setSelectedSkills((prev) =>
+      prev.includes(skill) ? prev.filter((s) => s !== skill) : [...prev, skill]
+    );
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-4xl font-bold gradient-text mb-4">Discover Projects</h1>
-        <p className="text-muted-foreground text-lg">Find your next opportunity in the decentralized future</p>
+        <h1 className="text-4xl font-bold gradient-text mb-4">
+          Discover Projects
+        </h1>
+        <p className="text-muted-foreground text-lg">
+          Find your next opportunity in the decentralized future
+        </p>
       </div>
 
-      {/* Search and Filters */}
       <div className="glass p-6 rounded-lg mb-8 space-y-6">
-        {/* Search Bar */}
         <div className="relative">
-          <svg
-            className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
           <Input
             placeholder="Search projects by name or description..."
             value={searchQuery}
@@ -83,8 +98,6 @@ export function ProjectsPage({ onViewProject }: ProjectsPageProps) {
             className="pl-10"
           />
         </div>
-
-        {/* Filters */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-medium text-foreground">Filters</h3>
@@ -92,17 +105,15 @@ export function ProjectsPage({ onViewProject }: ProjectsPageProps) {
               variant="ghost"
               size="sm"
               onClick={() => {
-                setSelectedSkills([])
-                setShowTokenizedOnly(false)
-                setSearchQuery("")
+                setSelectedSkills([]);
+                setShowTokenizedOnly(false);
+                setSearchQuery("");
               }}
               className="text-muted-foreground hover:text-foreground"
             >
               Clear All
             </Button>
           </div>
-
-          {/* Tokenization Filter */}
           <div>
             <Button
               variant={showTokenizedOnly ? "default" : "outline"}
@@ -113,15 +124,17 @@ export function ProjectsPage({ onViewProject }: ProjectsPageProps) {
               Tokenized Projects Only
             </Button>
           </div>
-
-          {/* Skills Filter */}
           <div>
-            <p className="text-sm text-muted-foreground mb-3">Filter by Skills</p>
+            <p className="text-sm text-muted-foreground mb-3">
+              Filter by Skills
+            </p>
             <div className="flex flex-wrap gap-2">
               {allSkills.map((skill) => (
                 <Badge
                   key={skill}
-                  variant={selectedSkills.includes(skill) ? "default" : "outline"}
+                  variant={
+                    selectedSkills.includes(skill) ? "default" : "outline"
+                  }
                   className={`cursor-pointer transition-all ${
                     selectedSkills.includes(skill)
                       ? "bg-accent text-accent-foreground border-accent"
@@ -137,36 +150,40 @@ export function ProjectsPage({ onViewProject }: ProjectsPageProps) {
         </div>
       </div>
 
-      {/* Results */}
       <div className="mb-6">
         <p className="text-muted-foreground">
-          Showing {filteredProjects.length} of {mockProjects.length} projects
+          Showing {filteredProjects.length} of {allProjects.length} projects
         </p>
       </div>
 
-      {/* Projects Grid */}
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredProjects.map((project) => (
-          <ProjectCard key={project.id} project={project} onViewDetails={onViewProject} />
-        ))}
-      </div>
-
-      {filteredProjects.length === 0 && (
+      {isLoading ? (
         <div className="text-center py-12">
-          <div className="w-16 h-16 rounded-full gradient-primary flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
-          </div>
-          <h3 className="text-lg font-medium text-foreground mb-2">No projects found</h3>
-          <p className="text-muted-foreground">Try adjusting your search criteria or filters</p>
+          <p>Loading projects...</p>
         </div>
+      ) : (
+        <>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredProjects.map((project) => (
+              <ProjectCard
+                key={project.id}
+                project={project}
+                onViewDetails={onViewProject}
+              />
+            ))}
+          </div>
+
+          {filteredProjects.length === 0 && (
+            <div className="text-center py-12">
+              <h3 className="text-lg font-medium text-foreground mb-2">
+                No projects found
+              </h3>
+              <p className="text-muted-foreground">
+                Try adjusting your search criteria or filters
+              </p>
+            </div>
+          )}
+        </>
       )}
     </div>
-  )
+  );
 }
