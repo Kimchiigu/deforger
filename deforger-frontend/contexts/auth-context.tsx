@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { Navbar } from "@/components/navbar";
 import { FloatingAIButton } from "@/components/floating-ai-button";
 import { AICopilotSidebar } from "@/components/ai-copilot-sidebar";
@@ -35,6 +35,7 @@ type AuthContextType = {
     portfolioUrl: string;
   }) => Promise<boolean>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -62,24 +63,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const storedUserId = localStorage.getItem("userId");
-        if (storedUserId) {
-          const profile = await backendActor.getUserProfile(storedUserId);
-          if (profile.length > 0) {
-            setUser(profile[0]);
-          }
+  const checkSession = useCallback(async () => {
+    try {
+      const storedUserId = localStorage.getItem("userId");
+      const token = localStorage.getItem("sessionToken");
+
+      if (storedUserId && token) {
+        // Here you might want to validate the token with the backend as well
+        const profileResult = await backendActor.getUserProfile(storedUserId);
+        if (profileResult.length > 0) {
+          setUser(profileResult[0]);
+        } else {
+          await logout();
         }
-      } catch (error) {
-        console.error("Error checking session:", error);
-      } finally {
-        setIsLoading(false);
       }
-    };
-    checkSession();
+    } catch (error) {
+      console.error("Error checking session:", error);
+      await logout();
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    checkSession();
+  }, [checkSession]);
 
   const login = async (username: string, password: string) => {
     try {
@@ -143,13 +151,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    const token = localStorage.getItem("sessionToken");
+    if (token) {
+      try {
+        await backendActor.logout(token);
+      } catch (error) {
+        console.error("Failed to logout from canister:", error);
+      }
+    }
     setUser(null);
     localStorage.removeItem("userId");
+    localStorage.removeItem("sessionToken");
+  };
+
+  const refreshUser = async () => {
+    setIsLoading(true);
+    await checkSession();
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout }}>
+    <AuthContext.Provider value={{ user, login, register, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

@@ -109,6 +109,15 @@ actor DeForger {
     };
   };
 
+  public shared func logout(token: Text): async Bool {
+    if (sessions.get(token) != null) {
+        sessions.delete(token);
+        return true;
+    } else {
+        return false;
+    };
+  };
+
   public shared func changePassword(token : Text, newPassword : Text) : async Bool {
     switch (validateToken(token)) {
       case (null) { false };
@@ -688,6 +697,24 @@ actor DeForger {
             };
             makeJsonResponse(200, response);
           };
+        };
+      };
+      case ("POST", "/logout") {
+        let ?jsonText = Text.decodeUtf8(req.body) else return makeJsonResponse(400, "{\"error\": \"Invalid body\"}");
+        let #ok(blob) = JSON.fromText(jsonText, null) else return makeJsonResponse(400, "{\"error\": \"Invalid JSON\"}");
+        
+        type LogoutReq = { token: Text };
+        let logoutReqOpt: ?LogoutReq = from_candid(blob);
+
+        switch(logoutReqOpt) {
+            case (null) {
+                return makeJsonResponse(400, "{\"error\": \"Missing token\"}");
+            };
+            case (?logoutReq) {
+                let success = await logout(logoutReq.token);
+                let response = if (success) { "{\"success\": true}" } else { "{\"error\": \"Invalid token\"}" };
+                makeJsonResponse(200, response);
+            };
         };
       };
       case ("POST", "/change-password") {

@@ -237,7 +237,7 @@ export function DashboardPage({
               <div>
                 <p className="text-sm text-muted-foreground">Portfolio Value</p>
                 <p className="text-2xl font-bold text-foreground">
-                  {totalPortfolioValue.toFixed(2)} ETH
+                  {totalPortfolioValue.toFixed(2)} ICP
                 </p>
               </div>
               <div className="w-12 h-12 rounded-lg gradient-primary flex items-center justify-center">
@@ -351,7 +351,7 @@ export function DashboardPage({
                       >
                         <div className="flex items-start justify-between mb-2">
                           <h3 className="font-semibold text-foreground">
-                            {project?.name}
+                            {project?.name || "Project Not Found"}
                           </h3>
                           <Badge
                             variant={

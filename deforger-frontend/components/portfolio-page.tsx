@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { backendActor } from "@/utils/service/actor-locator";
 import { Project } from "@/lib/types";
-import { MarketOverview } from "./market-overview"; // Assuming this component exists
+import { MarketOverview } from "./market-overview";
 import { TrendingUp, DollarSign, PieChart } from "lucide-react";
 
 interface PortfolioPageProps {
@@ -24,6 +24,13 @@ interface Shareholding {
   project: Project;
   shares: number;
 }
+
+// Helper function to simulate a daily price change based on project ID
+const getSimulatedDailyChange = (projectId: number) => {
+  const seed = projectId * 3 + new Date().getDate();
+  const change = (seed % 150) / 10 - 5; // Generates a number between -5.0 and +10.0
+  return change;
+};
 
 export function PortfolioPage({ userId, onNavigate }: PortfolioPageProps) {
   const [shareholdings, setShareholdings] = useState<Shareholding[]>([]);
@@ -39,6 +46,10 @@ export function PortfolioPage({ userId, onNavigate }: PortfolioPageProps) {
             id: Number(p.id),
             pricePerShare: Number(p.pricePerShare) / 1e8,
             totalShares: Number(p.totalShares),
+            // FIX IS HERE: Convert the share balance from BigInt to Number
+            shareBalances: p.shareBalances.map(
+              ([id, balance]: [string, bigint]) => [id, Number(balance)]
+            ),
           })
         );
 
@@ -75,6 +86,30 @@ export function PortfolioPage({ userId, onNavigate }: PortfolioPageProps) {
     0
   );
 
+  let portfolio24hChange = 0;
+  let bestPerformer = { name: "N/A", change: 0 };
+
+  if (shareholdings.length > 0) {
+    const totalValueYesterday = shareholdings.reduce((acc, holding) => {
+      const dailyChange = getSimulatedDailyChange(holding.project.id);
+      const priceYesterday =
+        holding.project.pricePerShare / (1 + dailyChange / 100);
+      return acc + holding.shares * priceYesterday;
+    }, 0);
+
+    if (totalValueYesterday > 0) {
+      portfolio24hChange =
+        ((totalValue - totalValueYesterday) / totalValueYesterday) * 100;
+    }
+
+    shareholdings.forEach((holding) => {
+      const change = getSimulatedDailyChange(holding.project.id);
+      if (change > bestPerformer.change) {
+        bestPerformer = { name: holding.project.name, change };
+      }
+    });
+  }
+
   if (isLoading) {
     return <div className="text-center p-10">Loading your portfolio...</div>;
   }
@@ -104,9 +139,13 @@ export function PortfolioPage({ userId, onNavigate }: PortfolioPageProps) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-1 text-sm text-green-500">
+            <div
+              className={`flex items-center gap-1 text-sm ${
+                portfolio24hChange >= 0 ? "text-green-500" : "text-red-500"
+              }`}
+            >
               <TrendingUp className="w-4 h-4" />
-              <span>+5.1% (24h)</span>
+              <span>{portfolio24hChange.toFixed(1)}% (24h)</span>
             </div>
           </CardContent>
         </Card>
@@ -129,14 +168,18 @@ export function PortfolioPage({ userId, onNavigate }: PortfolioPageProps) {
         <Card className="glass">
           <CardHeader className="pb-2">
             <CardDescription>Best Performer</CardDescription>
-            <CardTitle className="text-lg">
-              {shareholdings[0]?.project.name || "N/A"}
+            <CardTitle className="text-lg truncate">
+              {bestPerformer.name}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-1 text-sm text-green-500">
+            <div
+              className={`flex items-center gap-1 text-sm ${
+                bestPerformer.change >= 0 ? "text-green-500" : "text-red-500"
+              }`}
+            >
               <TrendingUp className="w-4 h-4" />
-              <span>+12.8%</span>
+              <span>{bestPerformer.change.toFixed(1)}%</span>
             </div>
           </CardContent>
         </Card>
@@ -169,6 +212,7 @@ export function PortfolioPage({ userId, onNavigate }: PortfolioPageProps) {
                 project.totalShares > 0
                   ? (shares / project.totalShares) * 100
                   : 0;
+              const dailyChange = getSimulatedDailyChange(project.id);
 
               return (
                 <Card
@@ -198,9 +242,13 @@ export function PortfolioPage({ userId, onNavigate }: PortfolioPageProps) {
                           })}{" "}
                           ICP
                         </div>
-                        <div className="text-sm text-green-500 flex items-center gap-1 justify-end">
+                        <div
+                          className={`text-sm flex items-center gap-1 justify-end ${
+                            dailyChange >= 0 ? "text-green-500" : "text-red-500"
+                          }`}
+                        >
                           <TrendingUp className="w-3 h-3" />
-                          +5.2%
+                          {dailyChange.toFixed(1)}%
                         </div>
                       </div>
                     </div>

@@ -412,7 +412,7 @@ export function ProjectDetailPage({ projectId, onBack }: ProjectDetailPageProps)
                 <ProjectChat
                   projectId={projectId}
                   projectName={project.name}
-                  teamMembers={project.team}
+                  teamMembers={teamMembers}
                 />
               </CardContent>
             </Card>

@@ -3,7 +3,7 @@
 import type React from "react"
 
 import type React from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,7 +24,7 @@ interface UserProfilePageProps {
 }
 
 export function UserProfilePage({ onBack }: UserProfilePageProps) {
-  const { user, login } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.name || "",
@@ -40,6 +40,17 @@ export function UserProfilePage({ onBack }: UserProfilePageProps) {
     type: "success" | "error";
     text: string;
   } | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        name: user.name,
+        role: user.role,
+        skills: user.skills.join(", "),
+        portfolioUrl: user.portfolioUrl,
+      });
+    }
+  }, [user]);
 
   if (!user) {
     return <div>Please sign in to view your profile</div>;
@@ -77,8 +88,7 @@ export function UserProfilePage({ onBack }: UserProfilePageProps) {
 
       if (success) {
         showMessage('success', 'Profile updated successfully!');
-        // Ideally, refresh user state from auth context
-        // For now, we assume the parent component will handle it or a page refresh will occur.
+        await refreshUser();
         setIsEditing(false);
       } else {
         showMessage('error', 'Failed to update profile.');

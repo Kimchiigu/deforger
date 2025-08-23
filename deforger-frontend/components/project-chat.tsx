@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/auth-context";
 import type { ChatMessage, UserProfile } from "@/lib/types";
 import { backendActor } from "@/utils/service/actor-locator";
@@ -11,7 +10,7 @@ import { backendActor } from "@/utils/service/actor-locator";
 interface ProjectChatProps {
   projectId: number;
   projectName: string;
-  teamMembers: UserProfile[]; // Now expects full UserProfile objects
+  teamMembers: UserProfile[];
 }
 
 export function ProjectChat({
@@ -46,12 +45,9 @@ export function ProjectChat({
   };
 
   useEffect(() => {
-    fetchMessages(); // Fetch initial messages
-
-    // Poll for new messages every 3 seconds
+    fetchMessages();
     const interval = setInterval(fetchMessages, 3000);
-
-    return () => clearInterval(interval); // Cleanup on component unmount
+    return () => clearInterval(interval);
   }, [projectId]);
 
   useEffect(() => {
@@ -76,7 +72,7 @@ export function ProjectChat({
       );
       if (success) {
         setInputValue("");
-        await fetchMessages(); // Immediately fetch new messages
+        await fetchMessages();
       } else {
         alert("Failed to send message.");
       }
