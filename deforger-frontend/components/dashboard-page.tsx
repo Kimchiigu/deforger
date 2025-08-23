@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -10,14 +11,15 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
-import {
-  mockProjects,
-  mockUsers,
-  mockAgentMatches,
-  getUserProjects,
-  getUserApplications,
-  getUserShareholdings,
-} from "@/lib/mock-data";
+import { makeBackendActor } from "@/utils/service/actor-locator";
+import { Project, AgentMatch, UserProfile } from "@/lib/types";
+
+// Helper function to get user initials
+const getInitials = (name: string = "") =>
+  name
+    .split(" ")
+    .map((n) => n[0])
+    .join("");
 
 interface DashboardPageProps {
   onViewProject: (projectId: number) => void;
@@ -29,6 +31,68 @@ export function DashboardPage({
   onViewProfile,
 }: DashboardPageProps) {
   const { user } = useAuth();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [agentMatches, setAgentMatches] = useState<AgentMatch[]>([]);
+  const [allUsers, setAllUsers] = useState<UserProfile[]>([]); // To display match names
+  const [isLoading, setIsLoading] = useState(true);
+  const backendActor = makeBackendActor();
+
+  useEffect(() => {
+    if (user) {
+      const fetchData = async () => {
+        setIsLoading(true);
+        try {
+          // Fetch all data in parallel
+          const [projectsResult, matchesResult] = await Promise.all([
+            backendActor.getAllProjects(),
+            backendActor.getAllAgentMatches(),
+          ]);
+
+          // NOTE: Candid returns BigInt for Nat, so we need to convert them.
+          const formattedProjects = projectsResult.map((p: any) => ({
+            ...p,
+            id: Number(p.id),
+            totalShares: Number(p.totalShares),
+            availableShares: Number(p.availableShares),
+            pricePerShare: Number(p.pricePerShare),
+            shareBalances: p.shareBalances.map(
+              ([id, balance]: [string, bigint]) => [id, Number(balance)]
+            ),
+          }));
+
+          const formattedMatches = matchesResult.map((m: any) => ({
+            ...m,
+            matchId: Number(m.matchId),
+            projectId: Number(m.projectId),
+            timestamp: new Date(Number(m.timestamp / 1000000n)).toISOString(), // Convert nanoseconds to ISO string
+          }));
+
+          setProjects(formattedProjects);
+          setAgentMatches(formattedMatches.slice(0, 5)); // Get most recent 5
+
+          // To display user names in "Recent Matches", we need to fetch their profiles.
+          // This is a simplified approach. In a real app, you might want a dedicated canister method.
+          const userIdsInMatches = new Set(
+            formattedMatches.map((m: AgentMatch) => m.userId)
+          );
+          const userProfilePromises = Array.from(userIdsInMatches).map(
+            (userId) => backendActor.getUserProfile(userId as string)
+          );
+          const userProfilesResults = await Promise.all(userProfilePromises);
+          const validProfiles = userProfilesResults
+            .flat()
+            .filter((p) => p) as UserProfile[];
+          setAllUsers(validProfiles);
+        } catch (error) {
+          console.error("Failed to fetch dashboard data:", error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      fetchData();
+    }
+  }, [user]);
 
   if (!user) {
     return (
@@ -43,10 +107,29 @@ export function DashboardPage({
     );
   }
 
-  const userProjects = getUserProjects(user.id);
-  const userApplications = getUserApplications(user.id);
-  const userShareholdings = getUserShareholdings(user.id);
-  const recentMatches = mockAgentMatches.slice(0, 5);
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-20 text-center">
+        <p className="text-muted-foreground">Loading your dashboard...</p>
+      </div>
+    );
+  }
+
+  // Filter data on the frontend
+  const userProjects = projects.filter(
+    (p) => p.owner === user.id || p.team.includes(user.id)
+  );
+  const userApplications = projects.flatMap((p) =>
+    p.applications.filter((app) => app.applicant === user.id)
+  );
+  const userShareholdings = projects
+    .filter(
+      (p) => p.isTokenized && p.shareBalances.some(([id]) => id === user.id)
+    )
+    .map((project) => {
+      const shareholding = project.shareBalances.find(([id]) => id === user.id);
+      return { project, shares: shareholding ? shareholding[1] : 0 };
+    });
 
   const totalPortfolioValue = userShareholdings.reduce(
     (total, holding) => total + holding.shares * holding.project.pricePerShare,
@@ -94,7 +177,7 @@ export function DashboardPage({
             </div>
           </CardContent>
         </Card>
-
+        {/* Other stat cards... */}
         <Card className="glass">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -122,7 +205,6 @@ export function DashboardPage({
             </div>
           </CardContent>
         </Card>
-
         <Card className="glass">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -150,7 +232,6 @@ export function DashboardPage({
             </div>
           </CardContent>
         </Card>
-
         <Card className="glass">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -207,7 +288,8 @@ export function DashboardPage({
                               variant="secondary"
                               className="bg-accent/20 text-accent border-accent/30"
                             >
-                              Tokenized
+                              {" "}
+                              Tokenized{" "}
                             </Badge>
                           )}
                           {project.owner === user.id && (
@@ -215,7 +297,8 @@ export function DashboardPage({
                               variant="outline"
                               className="border-white/20"
                             >
-                              Owner
+                              {" "}
+                              Owner{" "}
                             </Badge>
                           )}
                         </div>
@@ -259,7 +342,7 @@ export function DashboardPage({
               {userApplications.length > 0 ? (
                 <div className="space-y-4">
                   {userApplications.map((application) => {
-                    const project = mockProjects.find(
+                    const project = projects.find(
                       (p) => p.id === application.projectId
                     );
                     return (
@@ -326,10 +409,7 @@ export function DashboardPage({
               <div className="flex items-center space-x-3">
                 <div className="w-12 h-12 rounded-full gradient-primary flex items-center justify-center">
                   <span className="text-white font-medium">
-                    {user.name
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")}
+                    {getInitials(user.name)}
                   </span>
                 </div>
                 <div>
@@ -408,11 +488,13 @@ export function DashboardPage({
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {recentMatches.map((match) => {
-                  const project = mockProjects.find(
+                {agentMatches.map((match) => {
+                  const project = projects.find(
                     (p) => p.id === match.projectId
                   );
-                  const user = mockUsers.find((u) => u.id === match.userId);
+                  const matchedUser = allUsers.find(
+                    (u) => u.id === match.userId
+                  );
                   return (
                     <div
                       key={match.matchId}
@@ -421,14 +503,11 @@ export function DashboardPage({
                       <div className="flex items-center space-x-2 mb-1">
                         <div className="w-6 h-6 rounded-full gradient-primary flex items-center justify-center">
                           <span className="text-white text-xs font-medium">
-                            {user?.name
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("") || "?"}
+                            {getInitials(matchedUser?.name)}
                           </span>
                         </div>
                         <p className="text-sm font-medium text-foreground">
-                          {user?.name}
+                          {matchedUser?.name || "Unknown User"}
                         </p>
                       </div>
                       <p className="text-xs text-muted-foreground mb-1">

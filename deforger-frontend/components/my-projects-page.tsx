@@ -225,7 +225,7 @@ export function MyProjectsPage({ userId, onNavigate }: MyProjectsPageProps) {
       )}
 
       {userProjects.length === 0 && (
-        <Card className="bg-card/50 backdrop-blur-sm border-border/40 text-center py-12">
+        <Card className="bg-card/50 mt-4 backdrop-blur-sm border-border/40 text-center py-12">
           <CardContent>
             <h3 className="text-lg font-semibold mb-2">No Projects Yet</h3>
             <p className="text-muted-foreground mb-4">
