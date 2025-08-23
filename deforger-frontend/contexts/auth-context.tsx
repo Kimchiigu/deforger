@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/card";
 import { mockProjects } from "@/lib/mock-data";
 import { UserProfile } from "@/lib/types";
-import { makeBackendActor } from "@/utils/service/actor-locator";
+import { backendActor } from "@/utils/service/actor-locator";
 
 type AuthContextType = {
   user: UserProfile | null;
@@ -61,7 +61,6 @@ type View =
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const backendActor = makeBackendActor();
 
   useEffect(() => {
     const checkSession = async () => {

@@ -1,31 +1,38 @@
-import { ActorSubclass, HttpAgentOptions } from "@dfinity/agent";
-import { Principal } from "@dfinity/principal";
+import { Actor, ActorSubclass, HttpAgent } from "@dfinity/agent";
 
 import {
-  createActor as createBackendActor,
+  idlFactory as backendIdlFactory,
   canisterId as backendCanisterId,
 } from "@/src/declarations/backend";
 
-import {
-  _SERVICE as BackendService,
-} from "@/src/declarations/backend/backend.did";
+import { _SERVICE as BackendService } from "@/src/declarations/backend/backend.did";
 
-type CreateActorFn<T> = (
-  canisterId: string | Principal,
-  options?: { agentOptions?: HttpAgentOptions }
-) => ActorSubclass<T>;
+const createAgent = () => {
+  const host =
+    process.env.NEXT_PUBLIC_DFX_NETWORK === "local"
+      ? "http://127.0.0.1:4943"
+      : "https://icp-api.io";
 
-export const makeActor = <T>(
-  canisterId: string,
-  createActor: CreateActorFn<T>
-): ActorSubclass<T> => {
-  return createActor(canisterId, {
-    agentOptions: {
-      host: "http://127.0.0.1:4943",
-    },
-  });
+  const agent = new HttpAgent({ host });
+
+  if (process.env.NEXT_PUBLIC_DFX_NETWORK === "local") {
+    agent.fetchRootKey().catch((err) => {
+      console.warn(
+        "Unable to fetch root key. Check to ensure that your local replica is running"
+      );
+      console.error(err);
+    });
+  }
+
+  return agent;
 };
 
-export function makeBackendActor(): ActorSubclass<BackendService> {
-  return makeActor(backendCanisterId, createBackendActor);
-}
+const agent = createAgent();
+
+export const backendActor: ActorSubclass<BackendService> = Actor.createActor(
+  backendIdlFactory,
+  {
+    agent,
+    canisterId: backendCanisterId,
+  }
+);

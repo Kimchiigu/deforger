@@ -11,7 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
-import { makeBackendActor } from "@/utils/service/actor-locator";
+import { backendActor } from "@/utils/service/actor-locator";
 import { Project, AgentMatch, UserProfile } from "@/lib/types";
 
 // Helper function to get user initials
@@ -35,7 +35,6 @@ export function DashboardPage({
   const [agentMatches, setAgentMatches] = useState<AgentMatch[]>([]);
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]); // To display match names
   const [isLoading, setIsLoading] = useState(true);
-  const backendActor = makeBackendActor();
 
   useEffect(() => {
     if (user) {
