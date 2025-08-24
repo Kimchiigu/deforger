@@ -109,7 +109,7 @@ export function Navbar({
             onClick={() =>
               handleNavigation(isAuthenticated ? "dashboard" : "landing")
             }
-            className="flex items-center space-x-2"
+            className="flex items-center space-x-2 cursor-pointer"
           >
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center">
               <span className="text-white font-bold text-lg">D</span>
@@ -173,7 +173,7 @@ export function Navbar({
                   <button
                     key={item.name}
                     onClick={() => handleNavigation(item.href)}
-                    className={buttonClasses}
+                    className={buttonClasses + " cursor-pointer"}
                     title={item.name}
                   >
                     <item.icon className="w-5 h-5" />

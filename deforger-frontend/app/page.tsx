@@ -16,6 +16,10 @@ import { AuthProvider, useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { mockProjects } from "@/lib/mock-data"
+import { FeaturesPage } from "@/components/features-page"
+import { HowItWorksPage } from "@/components/how-it-works-page"
+import { AboutPage } from "@/components/about-page"
+import { ContactPage } from "@/components/contact-page"
 
 type View =
   | "landing"
@@ -26,7 +30,11 @@ type View =
   | "create-project"
   | "my-projects"
   | "portfolio"
-  | "auth"
+  | "features"
+  | "how-it-works"
+  | "about"
+  | "contact"
+  | "auth";
 
 function HomePageContent() {
   const { user, logout } = useAuth()
@@ -73,21 +81,46 @@ function HomePageContent() {
   const renderCurrentView = () => {
     switch (currentView) {
       case "projects":
-        return <ProjectsPage onViewProject={handleViewProject} />
+        return <ProjectsPage onViewProject={handleViewProject} />;
       case "project-detail":
         return selectedProjectId ? (
-          <ProjectDetailPage projectId={selectedProjectId} onBack={handleBackToProjects} />
-        ) : null
+          <ProjectDetailPage
+            projectId={selectedProjectId}
+            onBack={handleBackToProjects}
+          />
+        ) : null;
       case "dashboard":
-        return <DashboardPage onViewProject={handleViewProject} onViewProfile={() => setCurrentView("profile")} />
+        return (
+          <DashboardPage
+            onViewProject={handleViewProject}
+            onViewProfile={() => setCurrentView("profile")}
+          />
+        );
       case "profile":
-        return <UserProfilePage onBack={() => setCurrentView("dashboard")} />
+        return <UserProfilePage onBack={() => setCurrentView("dashboard")} />;
       case "create-project":
-        return <CreateProjectPage onBack={() => setCurrentView("projects")} onCreateProject={handleCreateProject} />
+        return (
+          <CreateProjectPage
+            onBack={() => setCurrentView("projects")}
+            onCreateProject={handleCreateProject}
+          />
+        );
       case "my-projects":
-        return user ? <MyProjectsPage userId={user.id} onNavigate={handleNavigation} /> : null
+        return user ? (
+          <MyProjectsPage userId={user.id} onNavigate={handleNavigation} />
+        ) : null;
       case "portfolio":
-        return user ? <PortfolioPage userId={user.id} onNavigate={handleNavigation} /> : null
+        return user ? (
+          <PortfolioPage userId={user.id} onNavigate={handleNavigation} />
+        ) : null;
+      case "features":
+        return <FeaturesPage />;
+      case "how-it-works":
+        return <HowItWorksPage />;
+      case "about":
+        return <AboutPage />;
+      case "contact":
+        return <ContactPage />;
       default:
         return (
           <>
