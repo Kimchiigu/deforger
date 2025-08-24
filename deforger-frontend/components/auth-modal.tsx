@@ -55,7 +55,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
         if (success) {
           onClose()
         } else {
-          setError("Invalid credentials. Use deforger / deforger")
+          setError("Invalid credentials.")
         }
       }
     } catch (err) {

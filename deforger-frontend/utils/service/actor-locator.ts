@@ -3,9 +3,9 @@ import { Actor, ActorSubclass, HttpAgent } from "@dfinity/agent";
 import {
   idlFactory as backendIdlFactory,
   canisterId as backendCanisterId,
-} from "@/src/declarations/backend";
+} from "@/declarations/backend";
 
-import { _SERVICE as BackendService } from "@/src/declarations/backend/backend.did";
+import { _SERVICE as BackendService } from "@/declarations/backend/backend.did";
 
 const createAgent = () => {
   const host =

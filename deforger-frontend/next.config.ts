@@ -6,7 +6,6 @@ DFXWebPackConfig.initCanisterIds();
 
 const nextConfig: NextConfig = {
   output: "export",
-
   webpack: (config, { isServer }) => {
     // Make DFX_NETWORK environment variable available to the browser
     // with a default value of "local"
@@ -19,6 +18,12 @@ const nextConfig: NextConfig = {
 
     return config;
   },
+  transpilePackages: [
+    "react-syntax-highlighter",
+    "react-syntax-highlighter/dist/cjs/styles/prism",
+  ],
 };
+
+console.log("✅ next.config.js loaded successfully!");
 
 export default nextConfig;
