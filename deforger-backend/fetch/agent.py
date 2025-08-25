@@ -131,9 +131,10 @@ tools = [
                             "additionalProperties": False
                         },
                         "description": "List of open roles."
-                    }
+                    },
+                    "projectType": {"type": "string", "enum": ["startup", "freelance"], "description": "Project type: startup or freelance."}
                 },
-                "required": ["token", "name", "vision", "openRoles"],
+                "required": ["token", "name", "vision", "openRoles", "projectType"],
                 "additionalProperties": False
             },
             "strict": True
@@ -269,6 +270,44 @@ tools = [
     {
         "type": "function",
         "function": {
+            "name": "add_review",
+            "description": "Adds a review to a project by a team member.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "token": {"type": "string", "description": "Session token."},
+                    "projectId": {"type": "number", "description": "Project ID."},
+                    "content": {"type": "string", "description": "Review content."},
+                    "rating": {"type": "number", "description": "Rating (1-5)."}
+                },
+                "required": ["token", "projectId", "content", "rating"],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "create_contract",
+            "description": "Creates a contract (simulated NFT) between a user and a project.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "token": {"type": "string", "description": "Session token."},
+                    "projectId": {"type": "number", "description": "Project ID."},
+                    "userId": {"type": "string", "description": "User ID."},
+                    "terms": {"type": "string", "description": "Contract terms."}
+                },
+                "required": ["token", "projectId", "userId", "terms"],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "get_all_projects",
             "description": "Retrieves all projects.",
             "parameters": {
@@ -331,6 +370,22 @@ tools = [
     {
         "type": "function",
         "function": {
+            "name": "get_project_reviews",
+            "description": "Retrieves reviews for a project.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "projectId": {"type": "number", "description": "Project ID."}
+                },
+                "required": ["projectId"],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "get_all_agent_matches",
             "description": "Retrieves all agent matches.",
             "parameters": {
@@ -370,6 +425,38 @@ tools = [
                     "token": {"type": "string", "description": "Session token."}
                 },
                 "required": ["token"],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_contract",
+            "description": "Retrieves a specific contract.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "contractId": {"type": "number", "description": "Contract ID."}
+                },
+                "required": ["contractId"],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_user_trust_score",
+            "description": "Retrieves a user's trust score.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "userId": {"type": "string", "description": "User ID."}
+                },
+                "required": ["userId"],
                 "additionalProperties": False
             },
             "strict": True
@@ -552,11 +639,11 @@ Change profile details with token abc: name Bob Revised, role Lead Designer, ski
 Modify user info - token def, name Charlie Enhanced, role Project Lead, skills leadership project-management communication, portfolio https://charlie.enhanced.io.
 
 Queries for /create-project
-Create a project named Awesome App, vision Build a revolutionary app, open roles developer "python rust", designer "ui ux", with token xyz.
+Create a project named Awesome App, vision Build a revolutionary app, open roles developer "python rust", designer "ui ux", type startup, with token xyz.
 
-Start new project: title Game Changer, description Change the gaming world, roles needed engineer "c++ unity", artist "3d modeling", token abc.
+Start new project: title Game Changer, description Change the gaming world, roles needed engineer "c++ unity", artist "3d modeling", projectType freelance, token abc.
 
-Initiate project Eco Friendly, vision Sustainable tech, openRoles manager "leadership", scientist "environmental science", using token def.
+Initiate project Eco Friendly, vision Sustainable tech, openRoles manager "leadership", scientist "environmental science", type startup, using token def.
 
 Queries for /record-agent-match
 Record match for project 1, user user-1, role developer, token xyz.
@@ -607,6 +694,20 @@ Pull projectId 2 earnings with token abc.
 
 Extract funds for project 3 using token def.
 
+Queries for /add-review
+Add review to project 1: Great experience, rating 5, token xyz.
+
+Submit project review for id 2, content Good collaboration, rating 4, with token abc.
+
+Review project 3: Could be better, rating 3, token def.
+
+Queries for /create-contract
+Create contract for project 1, user user-1, terms Standard agreement, token xyz.
+
+Draft NFT contract: projectId 2, userId user-2, terms Freelance terms, with token abc.
+
+Initiate contract for project 3 and user-3: terms Startup equity, token def.
+
 Queries for /get-all-projects
 What are all the projects?
 
@@ -635,6 +736,13 @@ List chat for projectId 2.
 
 Show messages from project 3.
 
+Queries for /get-project-reviews
+What are the reviews for project 1?
+
+List reviews for projectId 2.
+
+Show project 3 reviews.
+
 Queries for /get-all-agent-matches
 What are all agent matches?
 
@@ -655,4 +763,18 @@ Show me projects that match my skills with token xyz.
 What projects can I join based on my skills, token abc.
 
 Recommended projects for me, using token def.
+
+Queries for /get-contract
+Get details of contract 1.
+
+Retrieve contractId 2 information.
+
+Show contract with id 3.
+
+Queries for /get-user-trust-score
+What is the trust score for user user-1?
+
+Get trust credit of userId user-2.
+
+Show trust score for user-3.
 """
