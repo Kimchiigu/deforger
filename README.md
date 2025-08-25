@@ -222,7 +222,7 @@ To get DeForger running on your local machine, follow these steps:
         # Linux or macOS
         source venv/bin/activate
         # Windows
-        venvScriptsactivate
+        venv/Scripts/activate
         ```
       - Run the agent script:
         ```bash
@@ -232,6 +232,16 @@ To get DeForger running on your local machine, follow these steps:
         python agent.py
         ```
       - Open the agent's inspection page in your browser and connect to the mailbox.
+        <details open>
+        <summary>Click to see screenshots of the agent configuration</summary>
+        <br>
+        <b>Agent Output in Terminal</b>
+        <img src="./deforger-frontend/public/settings/Agent Output.png" alt="Agent Output in Terminal" width="500"/>
+        <br><br>
+        <b>Agent Connection Configuration in the Interface</b>
+        <img src="./deforger-frontend/public/settings/Agent Connection via Mailbox.png" alt="Agent Connection Configuration in the Interface" width="500"/>
+        </details>
+
 
 3.  **Launch the Frontend Application:**
 
