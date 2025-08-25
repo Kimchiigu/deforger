@@ -24,6 +24,11 @@ module Types {
     upgrade : ?Bool;
   };
 
+  public type LoginResponse = {
+    userId : Text;
+    token : Text;
+  };
+
   // Internal user profile, includes sensitive password hash.
   public type UserProfile = {
     id : Text;                 // Unique Text ID, e.g., "user-1"
