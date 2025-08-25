@@ -18,13 +18,111 @@ DeForger integrates **Fetch.ai's AI agents** for proactive, 24/7 talent matchmak
 
 -----
 
+## 🎯 The Problem: The Innovation Bottleneck
+
+Today's innovation landscape is hindered by significant inefficiencies that prevent great ideas from becoming reality. These bottlenecks lead to negative outcomes for the entire ecosystem.
+
+### Key Challenges:
+
+  - **Inefficient & Centralized Talent Discovery**: Finding collaborators is slow and relies on centralized platforms that charge high fees, control user data, and lack transparency.
+  - **Lack of Trust in Collaboration**: Early-stage projects are plagued by uncertainty. Without clear, enforceable agreements, disputes over ownership and contributions often lead to project failure.
+  - **Inaccessible Early-Stage Funding**: Founders struggle to secure pre-seed funding, while everyday investors are locked out of high-potential, early-stage investment opportunities.
+
+### The Result:
+
+  - Stifled Economic Growth
+  - Slowed Societal Progress
+  - Wasted Human Potential
+  - Reinforced Inequality
+
+-----
+
+## 💡 Our Solution
+
+DeForger is a trustless platform that **automates** talent matchmaking, **secures** collaboration, and **democratizes** project funding using the combined power of AI and blockchain.
+
+### What We Offer:
+
+  - **🤖 AI-Powered Matchmaking**: Our Fetch.ai agent works 24/7, intelligently connecting skilled professionals with projects based on on-chain data, eliminating the need for manual searching.
+  - **🔗 On-Chain Collaboration & Trust**: All agreements, roles, and communications are immutably recorded on the Internet Computer (ICP), creating a single source of truth and ensuring complete transparency from day one.
+  - **💸 Democratized Funding via RWAs**: Projects can tokenize their equity as Real World Assets (RWAs), allowing team members, supporters, and investors to buy shares and own a piece of the future, seamlessly.
+
+-----
+
 ## 🏛️ Architecture
 
-The project is built with a modern, decentralized tech stack:
+The project is built with a modern, decentralized tech stack. Below is the high-level architecture diagram illustrating how the components interact.
 
-  * **Frontend**: A responsive and interactive user interface built with **Next.js**, **TypeScript**, and styled with **TailwindCSS**.
-  * **Backend**: A secure and robust canister running on the **Internet Computer (ICP)**, written in **Motoko**.
-  * **AI Agent**: An autonomous agent powered by **Fetch.ai's uAgents framework** and **Python**, integrated with the **ASI:ONE** language model for natural language understanding and function calling.
+<p align="center">
+<img src="./deforger-frontend/public/diagram/deforger-architecture.png" alt="DeForger Architecture Diagram" width="800"/>
+</p>
+
+  - **Frontend**: A responsive and interactive user interface built with **Next.js**, **TypeScript**, and styled with **TailwindCSS**.
+  - **Backend**: A secure and robust canister running on the **Internet Computer (ICP)**, written in **Motoko**.
+  - **AI Agent**: An autonomous agent powered by **Fetch.ai's uAgents framework** and **Python**, integrated with the **ASI:ONE** language model for natural language understanding and function calling.
+
+-----
+
+## 🌊 User Flow
+
+This diagram outlines the typical journey of a user on the DeForger platform, from registration to project collaboration and investment.
+
+<p align="center">
+<img src="./deforger-frontend/public/diagram/deforger-userflow.png" alt="DeForger User Flow Diagram" width="800"/>
+</p>
+
+-----
+
+## 🎨 Mockups
+
+Here's a sneak peek at the DeForger user interface.
+
+<details open>
+<summary><strong>Click to expand and view all mockups</strong></summary>
+<br>
+<table>
+<tr>
+<td><img src="./deforger-frontend/public/mockup/Home Page.png" alt="Home Page" width="400"/></td>
+<td><img src="./deforger-frontend/public/mockup/Dashboard Page.png" alt="Dashboard Page" width="400"/></td>
+</tr>
+<tr>
+<td align="center"><em>Home Page</em></td>
+<td align="center"><em>Dashboard Page</em></td>
+</tr>
+<tr>
+<td><img src="./deforger-frontend/public/mockup/Browse Project.png" alt="Browse Project" width="400"/></td>
+<td><img src="./deforger-frontend/public/mockup/Project Detail.png" alt="Project Detail" width="400"/></td>
+</tr>
+<tr>
+<td align="center"><em>Browse Projects</em></td>
+<td align="center"><em>Project Detail</em></td>
+</tr>
+<tr>
+<td><img src="./deforger-frontend/public/mockup/Create New Project Page.png" alt="Create New Project Page" width="400"/></td>
+<td><img src="./deforger-frontend/public/mockup/Tokenize Project.png" alt="Tokenize Project" width="400"/></td>
+</tr>
+<tr>
+<td align="center"><em>Create Project</em></td>
+<td align="center"><em>Tokenize Project</em></td>
+</tr>
+<tr>
+<td><img src="./deforger-frontend/public/mockup/AI Copilot - Show All Projects.png" alt="AI Copilot" width="400"/></td>
+<td><img src="./deforger-frontend/public/mockup/Chat with Team Members.png" alt="Chat with Team" width="400"/></td>
+</tr>
+<tr>
+<td align="center"><em>AI Copilot Interaction</em></td>
+<td align="center"><em>Team Chat</em></td>
+</tr>
+<tr>
+<td><img src="./deforger-frontend/public/mockup/Login.png" alt="Login" width="400"/></td>
+<td><img src="./deforger-frontend/public/mockup/Register.png" alt="Register" width="400"/></td>
+</tr>
+<tr>
+<td align="center"><em>Login Page</em></td>
+<td align="center"><em>Register Page</em></td>
+</tr>
+</table>
+</details>
 
 -----
 
@@ -35,27 +133,20 @@ Here is an overview of the project's monorepo structure:
 ```
 DeForger/
 ├── deforger-backend/
-│   ├── fetch/                # Fetch.ai Agent implementation
-│   │   └── agent.py          # Main agent logic for interacting with ICP
-│   └── ic/                   # Internet Computer (ICP) Canister
+│   ├── fetch/                  # Fetch.ai Agent implementation
+│   │   └── agent.py            # Main agent logic for interacting with ICP
+│   └── ic/                     # Internet Computer (ICP) Canister
 │       └── src/
 │           └── backend/
 │               ├── main.mo   # Core canister logic and public methods
 │               └── Types.mo  # Data models and type definitions
 │
-├── deforger-frontend/
-│   ├── app/                  # Next.js 15+ App Router pages
-│   │   └── page.tsx          # Main application entry point
-│   ├── components/           # Reusable React components
-│   │   ├── ui/
-│   │   │   ├── project-card.tsx
-│   │   │   └── ai-copilot-sidebar.tsx
-│   │   └── ...
-│   ├── public/               # Static assets
-│   │   └── deforger-logo.png # Project logo
+├── defforger-frontend/
+│   ├── app/                    # Next.js 15+ App Router pages
+│   ├── public/                 # Static assets (diagrams, mockups, logo)
 │   └── ...
 │
-└── README.md                 # This file
+└── README.md                   # This file
 ```
 
 -----
@@ -66,19 +157,96 @@ To get DeForger running on your local machine, follow these steps:
 
 1.  **Deploy the Backend Canister (ICP):**
 
-      * Navigate to the backend directory: `cd deforger-backend/ic`
-      * Build and deploy the Motoko canister: `dfx deploy`
+      - Navigate to the frontend directory:
+
+        ```bash
+        cd deforger-frontend
+        ```
+
+      - Start a local ICP network:
+
+        ```bash
+        dfx start --clean --background
+        ```
+
+      - Generate canister declarations:
+
+        ```bash
+        dfx generate backend
+        ```
+
+      - Add your ASI:ONE API Key to a `.env` file in the `deforger-frontend` directory:
+
+        ```
+        NEXT_PUBLIC_ASI_ONE_API_KEY=your_key_here
+        ```
+
+      - **Modify `index.js` files**: Update the following two files to ensure the frontend uses the correct canister ID from environment variables.
+
+          - `deforger-frontend/.dfx/local/canisters/backend/index.js`
+          - `deforger-frontend/declarations/backend/index.js`
+
+        Replace the existing `canisterId` export with this code:
+
+        ```javascript
+        export const canisterId =
+          process.env.CANISTER_ID_BACKEND ||
+          process.env.NEXT_PUBLIC_BACKEND_CANISTER_ID;
+        ```
+
+        <details open>
+        <summary>Click to see screenshots of the file modifications</summary>
+        <br>
+        <b>.dfx/local/canisters/backend/index.js</b>
+        <img src="./deforger-frontend/public/settings/DFX Canister index.js Settings.png" alt="DFX Canister index.js Settings" width="500"/>
+        <br><br>
+        <b>declarations/backend/index.js</b>
+        <img src="./deforger-frontend/public/settings/Declarations Backend index.js Settings.png" alt="Declarations Backend index.js Settings" width="500"/>
+        </details>
+        <br>
+
+      - Build and deploy the Motoko canister locally:
+
+        ```bash
+        dfx deploy
+        ```
 
 2.  **Run the AI Agent (Fetch.ai):**
 
-      * Navigate to the agent directory: `cd deforger-backend/fetch`
-      * Activate your preferred Python virtual environment.
-      * Run the agent script: `python agent.py`
+      - Navigate to the agent directory:
+        ```bash
+        cd deforger-backend/fetch
+        ```
+      - Activate your Python virtual environment:
+        ```bash
+        # Linux or macOS
+        source venv/bin/activate
+        # Windows
+        venvScriptsactivate
+        ```
+      - Run the agent script:
+        ```bash
+        # Linux or macOS
+        python3 agent.py
+        # Windows
+        python agent.py
+        ```
+      - Open the agent's inspection page in your browser and connect to the mailbox.
 
 3.  **Launch the Frontend Application:**
 
-      * Navigate to the frontend directory: `cd deforger-frontend`
-      * Start the development server: `npm run dev`
+      - Navigate to the frontend directory:
+        ```bash
+        cd deforger-frontend
+        ```
+      - Install dependencies:
+        ```bash
+        npm install
+        ```
+      - Start the development server:
+        ```bash
+        npm run dev
+        ```
 
 -----
 
@@ -86,20 +254,10 @@ To get DeForger running on your local machine, follow these steps:
 
 The core of our intelligent automation is the DeForger AI Agent. You can interact with it to perform actions on the platform using natural language.
 
-  * **Agent Name:** `DeForger AI Agent`
-  * **Agent Address:** `test-agent://agent1q2fz6srx3z6crus7a8tymcp40jph0237xv8m45f7wqt8tksfkte85m86dm2`
+  - **Agent Name:** `DeForger AI Agent`
+  - **Agent Address:** `test-agent://agent1q2fz6srx3z6crus7a8tymcp40jph0237xv8m45f7wqt8tksfkte85m86dm2`
 
 ### 🛠️ Agent Capabilities & Example Queries
-
-The agent can perform a wide range of actions by calling functions on the ICP backend canister.
-
-#### Key Capabilities:
-
-  * **User Management**: Register, log in, change password, and update user profiles.
-  * **Project Management**: Create new projects, list all projects, and view specific project details.
-  * **Collaboration**: Apply to projects, review applications, and send messages within a project's chat.
-  * **Talent Matchmaking**: Find projects that match a user's skills and record agent-driven matches.
-  * **RWA Tokenization**: Tokenize a project, buy shares, and manage share balances.
 
 <details open>
 <summary><strong>Click to see example user queries for the agent</strong></summary>
@@ -119,12 +277,6 @@ Apply to project 1 with message I have the skills, token [your_session_token].
 
 # Buy Project Shares
 Buy 10 shares in project 1, token [your_session_token].
-
-# Find Matching Projects
-Show me projects that match my skills with token [your_session_token].
-
-# Get Project Details
-What are the messages in project 1?
 ```
 
 </details>
@@ -135,46 +287,39 @@ What are the messages in project 1?
 
 ### 🌐 Internet Computer (ICP) Features Used
 
-  * **Canister Development in Motoko**: The backend is implemented as an ICP canister (`Types.mo`, `main.mo`), providing a decentralized and immutable data layer.
-  * **Persistent Storage with HashMaps**: Utilizes `HashMap` from `mo:base` to store user profiles, projects, applications, messages, and share balances on-chain.
-  * **Custom Account System**: Implements user authentication with username/password hashing using `SHA-256` (`Sha256.fromBlob`) and session token management with expiration.
-  * **HTTP Interface**: Supports `http_request` and `http_request_update` for frontend interaction, handling GET queries and POST updates with JSON responses.
-  * **Data Serialization**: Uses `mo:serde/JSON` for serializing query responses to JSON, ensuring compatibility with the frontend and external services.
-  * **Time-Based Logic**: Leverages `mo:base/Time` for session expiration and timestamping messages and agent matches.
-  * **Type Definitions**: Defines structured data types (`UserProfile`, `Project`, `Application`, etc.) in `Types.mo` for robust on-chain data management.
-  * **Query and Update Methods**: Provides public `query` methods (e.g., `getUserProfile`) for read-only access and shared `update` methods (e.g., `register`, `createProject`) for state-changing operations, secured by token validation.
-  * **Share Balance Management**: Manages tokenized project shares using `HashMap` to simulate RWA tokenization.
+  - **Canister Development in Motoko**: The backend is implemented as an ICP canister, providing a decentralized and immutable data layer.
+  - **Persistent Storage with HashMaps**: Utilizes `HashMap` from `mo:base` to store all user, project, and application data on-chain.
+  - **Custom Account System**: Implements user authentication with username/password hashing (`SHA-256`) and session token management.
+  - **HTTP Interface**: Supports `http_request` and `http_request_update` for secure frontend interaction with JSON responses.
+  - **Type Definitions**: Defines structured data types (`UserProfile`, `Project`, etc.) in `Types.mo` for robust on-chain data management.
+  - **Share Balance Management**: Manages tokenized project shares using `HashMap` to simulate RWA tokenization.
 
 ### 🤖 Fetch.ai Features Used
 
-  * **uAgents Framework**: Utilizes Fetch.ai's `uagents` library to implement the autonomous `deforger-agent` for handling interactions and function calls (`agent.py`).
-  * **Chat Protocol**: Leverages the `chat_protocol_spec` for handling `ChatMessage` and `ChatAcknowledgement`, enabling robust agent communication. This is an advanced feature that ensures reliable messaging.
-  * **Asynchronous Message Handling**: Uses async handlers (`@chat_proto.on_message`) for processing user queries, ensuring non-blocking communication.
-  * **Tool Integration**: Defines a comprehensive set of function-calling tools (e.g., `register`, `create_project`, `buy_shares`) structured as JSON schemas for compatibility with the ASI:ONE API.
-  * **ASI:ONE API Integration**: Interfaces with the ASI:ONE AI service for processing user queries, parsing tool calls, and generating final responses.
-  * **Dynamic Query Processing**: Processes user queries by calling ASI:ONE, executing corresponding ICP canister functions via HTTP, and returning a formatted, natural language response.
+  - **uAgents Framework**: Utilizes Fetch.ai's `uagents` library to implement the autonomous agent for handling interactions and function calls.
+  - **Chat Protocol**: Leverages the `chat_protocol_spec` for robust, reliable, and stateful agent communication.
+  - **Asynchronous Message Handling**: Uses async handlers (`@chat_proto.on_message`) for non-blocking processing of user queries.
+  - **Tool Integration**: Defines a comprehensive set of function-calling tools structured as JSON schemas for the ASI:ONE API.
+  - **ASI:ONE API Integration**: Interfaces with the ASI:ONE AI service for processing natural language, parsing tool calls, and generating responses.
 
 -----
 
 ## 🧗 Challenges Faced
 
-The primary challenges were technical and centered around the integration of niche and emerging technologies. Specifically, we faced difficulties integrating **Motoko (ICP) with Fetch.ai** due to a lack of comprehensive examples and documentation. We also encountered issues with outdated libraries that required workarounds.
+The primary challenge was integrating the niche and emerging technologies of **Motoko (ICP) and the Fetch.ai uAgents framework**. The lack of comprehensive examples and documentation for connecting these two specific ecosystems required significant experimentation and problem-solving.
 
 -----
 
 ## 🔮 Future Plans
 
-If we continue development post-hackathon, our focus will be on:
-
-  * Refining the User Interface (UI) for a more intuitive experience.
-  * Adding features for project owner to review applications with steps including phases (application submission, interview, final decision).
-  * Enhancing the AI agent's capabilities to provide more context-aware recommendations.
-  * Implementing a decentralized file storage system for project files
-  * Visualize more detailed information about the investment and progress of the project.
-  * Implementing a full ICRC-1 token standard for RWAs.
+  - **UI/UX Refinement**: Enhance the user interface based on community feedback.
+  - **Mainnet Launch**: Deploy DeForger on the ICP mainnet.
+  - **ICRC-1 Integration**: Implement the full token standard for project RWAs to enhance interoperability.
+  - **DeForger DAO**: Transition platform governance to a DAO, giving control to the community.
+  - **DeFi Integration**: Integrate decentralized finance protocols for project treasury management.
 
 -----
 
 ## 📈 Technical Difficulty
 
-This project was **quite challenging** to build due to the direct integration of multiple new and specialized technologies. An advanced feature we successfully implemented was the **uAgents Chat Protocol** in our Fetch.ai agent, which allows for more complex and stateful conversations.
+This project was **quite challenging** due to the direct integration of multiple new and specialized technologies. A particularly advanced feature we successfully implemented was the **uAgents Chat Protocol**, which allows for more complex and stateful conversations with the AI agent, ensuring reliable message delivery and handling.
