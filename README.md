@@ -198,9 +198,11 @@ To get DeForger running on your local machine, follow these steps:
         <summary>Click to see screenshots of the file modifications</summary>
         <br>
         <b>.dfx/local/canisters/backend/index.js</b>
+        <br>
         <img src="./deforger-frontend/public/settings/DFX Canister index.js Settings.png" alt="DFX Canister index.js Settings" width="500"/>
         <br><br>
         <b>declarations/backend/index.js</b>
+        <br>
         <img src="./deforger-frontend/public/settings/Declarations Backend index.js Settings.png" alt="Declarations Backend index.js Settings" width="500"/>
         </details>
         <br>

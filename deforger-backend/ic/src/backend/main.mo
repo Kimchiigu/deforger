@@ -36,6 +36,10 @@ actor DeForger {
   private var applicationCounter : Nat = 0;
   private var messageCounter : Nat = 0;
   private var messages : HashMap.HashMap<Nat, Buffer.Buffer<Types.ChatMessage>> = HashMap.HashMap<Nat, Buffer.Buffer<Types.ChatMessage>>(0, Nat.equal, natHash);
+  private var reviewCounter : Nat = 0;
+  private var reviews : HashMap.HashMap<Nat, Buffer.Buffer<Types.Review>> = HashMap.HashMap<Nat, Buffer.Buffer<Types.Review>>(0, Nat.equal, natHash);
+  private var contractCounter : Nat = 0;
+  private var contracts : HashMap.HashMap<Nat, Types.Contract> = HashMap.HashMap<Nat, Types.Contract>(0, Nat.equal, natHash);
 
   // Helper functions
   private func validateToken(token : Text) : ?Text {
@@ -60,6 +64,16 @@ actor DeForger {
     return hexText;
   };
 
+  private func updateTrustScore(userId : Text, newRating : Nat) {
+    let ?profile = users.get(userId) else return;
+    // Simple average: (current score * num reviews + new rating) / (num reviews + 1)
+    // But since we don't track num reviews per user, approximate or add a field
+    // For simplicity, add rating to score (assuming rating 1-5, score accumulates)
+    let newScore = profile.trustScore + newRating;
+    let updated = { profile with trustScore = newScore };
+    users.put(userId, updated);
+  };
+
   // Public methods
   public shared func register(username : Text, password : Text, name : Text, role : Text, skills : [Text], portfolioUrl : Text) : async Bool {
     if (usernames.get(username) != null) { return false };
@@ -78,13 +92,14 @@ actor DeForger {
       role = role;
       skills = skills;
       portfolioUrl = portfolioUrl;
+      trustScore = 0; // Initial trust score
     };
     users.put(id, profile);
     usernames.put(username, id);
     true;
   };
 
-  public shared func login(username : Text, password : Text) : async ?Types.LoginResponse {
+  public shared func login(username : Text, password : Text) : async ?Text {
     switch (usernames.get(username)) {
       case (null) { null };
       case (?id) {
@@ -101,20 +116,11 @@ actor DeForger {
               userCounter += 1;
               let expires = Time.now() + 86_400_000_000_000; // 24 hours (ns)
               sessions.put(token, { userId = profile.id; expires = expires });
-              ?{ userId = profile.id; token = token };
+              ?token;
             };
           };
         };
       };
-    };
-  };
-
-  public shared func logout(token: Text): async Bool {
-    if (sessions.get(token) != null) {
-        sessions.delete(token);
-        return true;
-    } else {
-        return false;
     };
   };
 
@@ -153,7 +159,7 @@ actor DeForger {
     };
   };
 
-  public shared func createProject(token : Text, name : Text, vision : Text, openRoles : [Types.RoleRequirement]) : async Nat {
+  public shared func createProject(token : Text, name : Text, vision : Text, openRoles : [Types.RoleRequirement], projectType : Text) : async Nat {
     switch (validateToken(token)) {
       case (null) { Debug.trap("Invalid token") };
       case (?owner) {
@@ -175,6 +181,7 @@ actor DeForger {
           availableShares = 0;
           pricePerShare = 0;
           shareBalances;
+          projectType; // New field: "startup" or "freelance"
         };
         projects.put(id, project);
         id;
@@ -361,6 +368,63 @@ actor DeForger {
     };
   };
 
+  public shared func addReview(token : Text, projectId : Nat, content : Text, rating : Nat) : async Bool {
+    switch (validateToken(token)) {
+      case (null) { false };
+      case (?reviewer) {
+        let ?project = projects.get(projectId) else return false;
+        if (project.owner == reviewer or not Buffer.contains<Text>(project.team, reviewer, Text.equal)) {
+          return false; // Only team members, not owner
+        };
+        reviewCounter += 1;
+        let rev : Types.Review = {
+          id = reviewCounter;
+          projectId;
+          reviewer;
+          content;
+          rating; // e.g., 1-5
+          timestamp = Time.now();
+        };
+        switch (reviews.get(projectId)) {
+          case (null) {
+            let b = Buffer.Buffer<Types.Review>(1);
+            b.add(rev);
+            reviews.put(projectId, b);
+          };
+          case (?b) {
+            b.add(rev);
+          };
+        };
+        // Update trust score for owner or other members? For simplicity, update owner's trust score
+        updateTrustScore(project.owner, rating);
+        true;
+      };
+    };
+  };
+
+  public shared func createContract(token : Text, projectId : Nat, userId : Text, terms : Text) : async Nat {
+    switch (validateToken(token)) {
+      case (null) { Debug.trap("Invalid token") };
+      case (?caller) {
+        let ?project = projects.get(projectId) else Debug.trap("Project not found");
+        if (project.owner != caller) { Debug.trap("Not owner") };
+        contractCounter += 1;
+        let nftId = contractCounter; // Simulate NFT ID as unique counter
+        let contract : Types.Contract = {
+          id = contractCounter;
+          projectId;
+          userId;
+          terms;
+          status = "active";
+          nftId;
+          timestamp = Time.now();
+        };
+        contracts.put(contractCounter, contract);
+        contractCounter;
+      };
+    };
+  };
+
   // Internal non-async query functions
   private func projectToPublic(p : Types.Project) : Types.PublicProject {
       let shareBalancesText = Buffer.Buffer<(Text, Nat)>(p.shareBalances.size());
@@ -390,6 +454,7 @@ actor DeForger {
         availableShares = p.availableShares;
         pricePerShare = p.pricePerShare;
         shareBalances = Buffer.toArray(shareBalancesText);
+        projectType = p.projectType;
       };
   };
   
@@ -402,6 +467,7 @@ actor DeForger {
       role = profile.role;
       skills = profile.skills;
       portfolioUrl = profile.portfolioUrl;
+      trustScore = profile.trustScore;
     };
   };
 
@@ -430,6 +496,26 @@ actor DeForger {
             sender = msg.sender;
             content = msg.content;
             timestamp = msg.timestamp;
+          });
+        };
+        Buffer.toArray(buf);
+      };
+    };
+  };
+
+  private func getProjectReviewsInternal(projectId : Nat) : [Types.Review] {
+    switch (reviews.get(projectId)) {
+      case (null) { [] };
+      case (?b) {
+        let buf = Buffer.Buffer<Types.Review>(b.size());
+        for (rev in b.vals()) {
+          buf.add({
+            id = rev.id;
+            projectId = rev.projectId;
+            reviewer = rev.reviewer;
+            content = rev.content;
+            rating = rev.rating;
+            timestamp = rev.timestamp;
           });
         };
         Buffer.toArray(buf);
@@ -481,6 +567,15 @@ actor DeForger {
       Buffer.toArray(matchingProjects);
   };
 
+  private func getContractInternal(contractId : Nat) : ?Types.Contract {
+    contracts.get(contractId);
+  };
+
+  private func getUserTrustScoreInternal(userId : Text) : Nat {
+    let ?profile = users.get(userId) else return 0;
+    profile.trustScore;
+  };
+
   // Read-Only Queries
   public query func getUserProfile(userId : Text) : async ?Types.PublicUserProfile {
     getUserProfileInternal(userId);
@@ -498,6 +593,10 @@ actor DeForger {
     getProjectMessagesInternal(projectId);
   };
 
+  public query func getProjectReviews(projectId : Nat) : async [Types.Review] {
+    getProjectReviewsInternal(projectId);
+  };
+
   public query func getAllAgentMatches() : async [Types.AgentMatch] {
     getAllAgentMatchesInternal();
   };
@@ -513,6 +612,14 @@ actor DeForger {
               getMatchingProjectsInternal(userId);
           };
       };
+  };
+
+  public query func getContract(contractId : Nat) : async ?Types.Contract {
+    getContractInternal(contractId);
+  };
+
+  public query func getUserTrustScore(userId : Text) : async Nat {
+    getUserTrustScoreInternal(userId);
   };
 
   // HTTP handling
@@ -600,6 +707,15 @@ actor DeForger {
             let #ok(jsonText) = JSON.toText(blob, keys, null) else return makeSerializationErrorResponse();
             makeJsonResponse(200, jsonText);
           };
+          case ("/get-project-reviews") {
+            let ?idText = params.get("projectId") else return makeJsonResponse(400, "{\"error\": \"Missing projectId\"}");
+            let ?id = Nat.fromText(idText) else return makeJsonResponse(400, "{\"error\": \"Invalid projectId\"}");
+            let revs = getProjectReviewsInternal(id);
+            let blob = to_candid (revs);
+            let keys = [];
+            let #ok(jsonText) = JSON.toText(blob, keys, null) else return makeSerializationErrorResponse();
+            makeJsonResponse(200, jsonText);
+          };
           case ("/get-all-agent-matches") {
             let matches = getAllAgentMatchesInternal();
             let blob = to_candid (matches);
@@ -627,6 +743,22 @@ actor DeForger {
               let #ok(jsonText) = JSON.toText(blob, keys, null) else return makeSerializationErrorResponse();
               makeJsonResponse(200, jsonText);
           };
+          case ("/get-contract") {
+            let ?idText = params.get("contractId") else return makeJsonResponse(400, "{\"error\": \"Missing contractId\"}");
+            let ?id = Nat.fromText(idText) else return makeJsonResponse(400, "{\"error\": \"Invalid contractId\"}");
+            let contOpt = getContractInternal(id);
+            let blob = to_candid (contOpt);
+            let keys = [];
+            let #ok(jsonText) = JSON.toText(blob, keys, null) else return makeSerializationErrorResponse();
+            makeJsonResponse(200, jsonText);
+          };
+          case ("/get-user-trust-score") {
+            let ?userIdText = params.get("userId") else return makeJsonResponse(400, "{\"error\": \"Missing userId\"}");
+            let userId = userIdText;
+            let score = getUserTrustScoreInternal(userId);
+            let jsonText = "{\"trustScore\": " # Nat.toText(score) # "}";
+            makeJsonResponse(200, jsonText);
+          };
           case _ {
             makeJsonResponse(404, "{\"error\": \"Not found\"}");
           };
@@ -652,25 +784,21 @@ actor DeForger {
     let normalizedUrl = Text.trimEnd(parts[0], #text "/");
     switch (req.method, normalizedUrl) {
       case ("POST", "/login") {
-      let ?jsonText = Text.decodeUtf8(req.body) else return makeJsonResponse(400, "{\"error\": \"Invalid body\"}");
-      let #ok(blob) = JSON.fromText(jsonText, null) else return makeJsonResponse(400, "{\"error\": \"Invalid JSON\"}");
-      
-      type LoginReq = { username : Text; password : Text };
-      let loginReqOpt : ?LoginReq = from_candid (blob);
-      
-      switch (loginReqOpt) {
-        case (null) {
-          return makeJsonResponse(400, "{\"error\": \"Missing fields\"}");
-        };
-        case (?loginReq) {
-          let loginResponseOpt = await login(loginReq.username, loginReq.password);
-          let response = switch (loginResponseOpt) {
-            case (null) { "{\"error\": \"Invalid credentials\"}" };
-            case (?loginResponse) {
-              "{\"userId\": \"" # loginResponse.userId # "\", \"token\": \"" # loginResponse.token # "\"}"
-            };
+        let ?jsonText = Text.decodeUtf8(req.body) else return makeJsonResponse(400, "{\"error\": \"Invalid body\"}");
+        let #ok(blob) = JSON.fromText(jsonText, null) else return makeJsonResponse(400, "{\"error\": \"Invalid JSON\"}");
+        type LoginReq = { username : Text; password : Text };
+        let loginReqOpt : ?LoginReq = from_candid (blob);
+        switch (loginReqOpt) {
+          case (null) {
+            return makeJsonResponse(400, "{\"error\": \"Missing fields\"}");
           };
-          makeJsonResponse(200, response);
+          case (?loginReq) {
+            let tokenOpt = await login(loginReq.username, loginReq.password);
+            let response = switch (tokenOpt) {
+              case (null) { "{\"error\": \"Invalid credentials\"}" };
+              case (?t) { "{\"token\": \"" # t # "\"}" };
+            };
+            makeJsonResponse(200, response);
           };
         };
       };
@@ -697,24 +825,6 @@ actor DeForger {
             };
             makeJsonResponse(200, response);
           };
-        };
-      };
-      case ("POST", "/logout") {
-        let ?jsonText = Text.decodeUtf8(req.body) else return makeJsonResponse(400, "{\"error\": \"Invalid body\"}");
-        let #ok(blob) = JSON.fromText(jsonText, null) else return makeJsonResponse(400, "{\"error\": \"Invalid JSON\"}");
-        
-        type LogoutReq = { token: Text };
-        let logoutReqOpt: ?LogoutReq = from_candid(blob);
-
-        switch(logoutReqOpt) {
-            case (null) {
-                return makeJsonResponse(400, "{\"error\": \"Missing token\"}");
-            };
-            case (?logoutReq) {
-                let success = await logout(logoutReq.token);
-                let response = if (success) { "{\"success\": true}" } else { "{\"error\": \"Invalid token\"}" };
-                makeJsonResponse(200, response);
-            };
         };
       };
       case ("POST", "/change-password") {
@@ -767,6 +877,7 @@ actor DeForger {
           name : Text;
           vision : Text;
           openRoles : [Types.RoleRequirement];
+          projectType : Text;
         };
         let reqOpt : ?Req = from_candid (blob);
         switch (reqOpt) {
@@ -774,7 +885,7 @@ actor DeForger {
             return makeJsonResponse(400, "{\"error\": \"Missing fields\"}");
           };
           case (?reqData) {
-            let id = await createProject(reqData.token, reqData.name, reqData.vision, reqData.openRoles);
+            let id = await createProject(reqData.token, reqData.name, reqData.vision, reqData.openRoles, reqData.projectType);
             let response = "{\"id\": " # Nat.toText(id) # "}";
             makeJsonResponse(200, response);
           };
@@ -917,6 +1028,40 @@ actor DeForger {
             let response = if (success) { "{\"success\": true}" } else {
               "{\"error\": \"Failed\"}";
             };
+            makeJsonResponse(200, response);
+          };
+        };
+      };
+      case ("POST", "/add-review") {
+        let ?jsonText = Text.decodeUtf8(req.body) else return makeJsonResponse(400, "{\"error\": \"Invalid body\"}");
+        let #ok(blob) = JSON.fromText(jsonText, null) else return makeJsonResponse(400, "{\"error\": \"Invalid JSON\"}");
+        type Req = { token : Text; projectId : Nat; content : Text; rating : Nat };
+        let reqOpt : ?Req = from_candid (blob);
+        switch (reqOpt) {
+          case (null) {
+            return makeJsonResponse(400, "{\"error\": \"Missing fields\"}");
+          };
+          case (?reqData) {
+            let success = await addReview(reqData.token, reqData.projectId, reqData.content, reqData.rating);
+            let response = if (success) { "{\"success\": true}" } else {
+              "{\"error\": \"Failed\"}";
+            };
+            makeJsonResponse(200, response);
+          };
+        };
+      };
+      case ("POST", "/create-contract") {
+        let ?jsonText = Text.decodeUtf8(req.body) else return makeJsonResponse(400, "{\"error\": \"Invalid body\"}");
+        let #ok(blob) = JSON.fromText(jsonText, null) else return makeJsonResponse(400, "{\"error\": \"Invalid JSON\"}");
+        type Req = { token : Text; projectId : Nat; userId : Text; terms : Text };
+        let reqOpt : ?Req = from_candid (blob);
+        switch (reqOpt) {
+          case (null) {
+            return makeJsonResponse(400, "{\"error\": \"Missing fields\"}");
+          };
+          case (?reqData) {
+            let id = await createContract(reqData.token, reqData.projectId, reqData.userId, reqData.terms);
+            let response = "{\"id\": " # Nat.toText(id) # "}";
             makeJsonResponse(200, response);
           };
         };

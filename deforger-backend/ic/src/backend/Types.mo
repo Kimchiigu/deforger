@@ -24,11 +24,6 @@ module Types {
     upgrade : ?Bool;
   };
 
-  public type LoginResponse = {
-    userId : Text;
-    token : Text;
-  };
-
   // Internal user profile, includes sensitive password hash.
   public type UserProfile = {
     id : Text;                 // Unique Text ID, e.g., "user-1"
@@ -38,6 +33,7 @@ module Types {
     role : Text;
     skills : [Text];
     portfolioUrl : Text;
+    trustScore : Nat;          // New: Trust credit score
   };
 
   // Public-facing user profile, excludes sensitive data.
@@ -48,6 +44,7 @@ module Types {
     role : Text;
     skills : [Text];
     portfolioUrl : Text;
+    trustScore : Nat;          // New: Include trust score publicly
   };
 
   // Session record for user authentication.
@@ -70,6 +67,7 @@ module Types {
     availableShares : Nat;
     pricePerShare : Nat;
     shareBalances : HashMap.HashMap<Text, Nat>; // Share balances mapped by Text user ID
+    projectType : Text;        // New: "startup" or "freelance"
   };
 
   // Public-facing project data.
@@ -86,6 +84,7 @@ module Types {
     availableShares : Nat;
     pricePerShare : Nat;
     shareBalances : [(Text, Nat)];
+    projectType : Text;        // New
   };
 
   public type RoleRequirement = {
@@ -114,6 +113,27 @@ module Types {
     projectId : Nat;
     sender : Text;             // Sender's Text ID
     content : Text;
+    timestamp : Time.Time;
+  };
+
+  // New: Review type
+  public type Review = {
+    id : Nat;
+    projectId : Nat;
+    reviewer : Text;
+    content : Text;
+    rating : Nat;              // e.g., 1-5
+    timestamp : Time.Time;
+  };
+
+  // New: Contract type (simulating NFT with unique ID)
+  public type Contract = {
+    id : Nat;
+    projectId : Nat;
+    userId : Text;
+    terms : Text;
+    status : Text;             // e.g., "active", "completed"
+    nftId : Nat;               // Simulated NFT unique ID
     timestamp : Time.Time;
   };
 };
