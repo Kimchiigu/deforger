@@ -1,26 +1,32 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Navbar } from "@/components/navbar"
-import { FloatingAIButton } from "@/components/floating-ai-button"
-import { AICopilotSidebar } from "@/components/ai-copilot-sidebar"
-import { ProjectsPage } from "@/components/projects-page"
-import { ProjectDetailPage } from "@/components/project-detail-page"
-import { DashboardPage } from "@/components/dashboard-page"
-import { UserProfilePage } from "@/components/user-profile-page"
-import { CreateProjectPage } from "@/components/create-project-page"
-import { MyProjectsPage } from "@/components/my-projects-page"
-import { PortfolioPage } from "@/components/portfolio-page"
-import { AuthModal } from "@/components/auth-modal"
-import { AuthProvider, useAuth } from "@/contexts/auth-context"
-import { Button } from "@/components/ui/button"
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { mockProjects } from "@/lib/mock-data"
-import { FeaturesPage } from "@/components/features-page"
-import { HowItWorksPage } from "@/components/how-it-works-page"
-import { AboutPage } from "@/components/about-page"
-import { ContactPage } from "@/components/contact-page"
-import { RWAExchangePage } from "@/components/rwa-exchange-page"
+import { useState } from "react";
+import { Navbar } from "@/components/navbar";
+import { FloatingAIButton } from "@/components/floating-ai-button";
+import { AICopilotSidebar } from "@/components/ai-copilot-sidebar";
+import { ProjectsPage } from "@/components/projects-page";
+import { ProjectDetailPage } from "@/components/project-detail-page";
+import { DashboardPage } from "@/components/dashboard-page";
+import { UserProfilePage } from "@/components/user-profile-page";
+import { CreateProjectPage } from "@/components/create-project-page";
+import { PortfolioPage } from "@/components/portfolio-page";
+import { AuthModal } from "@/components/auth-modal";
+import { AuthProvider, useAuth } from "@/contexts/auth-context";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { mockProjects } from "@/lib/mock-data";
+import { FeaturesPage } from "@/components/features-page";
+import { HowItWorksPage } from "@/components/how-it-works-page";
+import { AboutPage } from "@/components/about-page";
+import { ContactPage } from "@/components/contact-page";
+import { RWAExchangePage } from "@/components/rwa-exchange-page";
+import { DiscoverPeoplePage } from "@/components/discover-people-page";
+import { PublicProfilePage } from "@/components/public-profile-page";
 
 type View =
   | "landing"
@@ -29,6 +35,8 @@ type View =
   | "dashboard"
   | "profile"
   | "create-project"
+  | "discover-people"
+  | "public-profile"
   | "rwa-exchange"
   | "portfolio"
   | "features"
@@ -38,46 +46,54 @@ type View =
   | "auth";
 
 function HomePageContent() {
-  const { user, logout } = useAuth()
-  const [isCopilotOpen, setIsCopilotOpen] = useState(false)
-  const [currentView, setCurrentView] = useState<View>("landing")
-  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null)
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
-  const [projects, setProjects] = useState(mockProjects)
+  const { user, logout } = useAuth();
+  const [isCopilotOpen, setIsCopilotOpen] = useState(false);
+  const [currentView, setCurrentView] = useState<View>("landing");
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
+    null
+  );
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [projects, setProjects] = useState(mockProjects);
 
   const handleViewProject = (projectId: number) => {
-    setSelectedProjectId(projectId)
-    setCurrentView("project-detail")
-  }
+    setSelectedProjectId(projectId);
+    setCurrentView("project-detail");
+  };
+
+  const handleViewProfile = (userId: string) => {
+    setSelectedUserId(userId);
+    setCurrentView("public-profile");
+  };
 
   const handleBackToProjects = () => {
-    setCurrentView("projects")
-    setSelectedProjectId(null)
-  }
+    setCurrentView("projects");
+    setSelectedProjectId(null);
+  };
 
   const handleNavigation = (view: string, data?: any) => {
     if (view === "auth") {
-      setIsAuthModalOpen(true)
-      return
+      setIsAuthModalOpen(true);
+      return;
     }
 
     if (view === "project-detail" && data?.projectId) {
-      setSelectedProjectId(data.projectId)
+      setSelectedProjectId(data.projectId);
     }
-    setCurrentView(view as View)
+    setCurrentView(view as View);
     if (view !== "project-detail") {
-      setSelectedProjectId(null)
+      setSelectedProjectId(null);
     }
-  }
+  };
 
   const handleSignOut = () => {
-    logout()
-    setCurrentView("landing")
-  }
+    logout();
+    setCurrentView("landing");
+  };
 
   const handleCreateProject = (newProject: any) => {
-    setProjects((prev) => [newProject, ...prev])
-  }
+    setProjects((prev) => [newProject, ...prev]);
+  };
 
   const renderCurrentView = () => {
     switch (currentView) {
@@ -111,9 +127,21 @@ function HomePageContent() {
             onCreateProject={handleCreateProject}
           />
         );
+      case "discover-people":
+        return user ? (
+          <DiscoverPeoplePage onViewProfile={handleViewProfile} />
+        ) : null;
+      case "public-profile":
+        return selectedUserId ? (
+          <PublicProfilePage
+            userId={selectedUserId}
+            onBack={() => setCurrentView("discover-people")}
+            onNavigate={handleNavigation}
+          />
+        ) : null;
       case "rwa-exchange":
         return user ? (
-          <RWAExchangePage />
+          <RWAExchangePage onBack={() => setCurrentView("dashboard")} />
         ) : null;
       case "portfolio":
         return user ? (
@@ -258,7 +286,7 @@ function HomePageContent() {
           </>
         );
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -270,15 +298,25 @@ function HomePageContent() {
         onSignOut={handleSignOut}
       />
 
-      <FloatingAIButton isOpen={isCopilotOpen} onClick={() => setIsCopilotOpen(!isCopilotOpen)} />
+      <FloatingAIButton
+        isOpen={isCopilotOpen}
+        onClick={() => setIsCopilotOpen(!isCopilotOpen)}
+      />
 
-      <AICopilotSidebar isOpen={isCopilotOpen} onClose={() => setIsCopilotOpen(false)} onNavigate={handleNavigation} />
+      <AICopilotSidebar
+        isOpen={isCopilotOpen}
+        onClose={() => setIsCopilotOpen(false)}
+        onNavigate={handleNavigation}
+      />
 
-      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+      />
 
       <main className="pt-16">{renderCurrentView()}</main>
     </div>
-  )
+  );
 }
 
 export default function HomePage() {
@@ -286,5 +324,5 @@ export default function HomePage() {
     <AuthProvider>
       <HomePageContent />
     </AuthProvider>
-  )
+  );
 }

@@ -16,7 +16,6 @@ import {
   User,
   LogOut,
   LayoutDashboard,
-  Briefcase,
   Search,
   Wallet,
   BadgeCent,
@@ -65,7 +64,7 @@ export function Navbar({
       submenu: [
         { name: "Browse Projects", href: "projects" },
         { name: "Create Project", href: "create-project" },
-        { name: "Search People", href: "search-people" },
+        { name: "Search People", href: "discover-people" },
       ],
     },
     {
@@ -149,7 +148,6 @@ export function Navbar({
                     : "text-muted-foreground hover:text-primary hover:bg-primary/5"
                 }`;
 
-                // If item has a submenu, render the dropdown. Otherwise, render a simple button.
                 return item.submenu ? (
                   <DropdownMenu key={item.name}>
                     <DropdownMenuTrigger asChild>

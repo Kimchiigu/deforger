@@ -481,6 +481,21 @@ actor DeForger {
       Buffer.toArray(matchingProjects);
   };
 
+  private func getAllUserProfilesInternal() : [Types.PublicUserProfile] {
+    let buf = Buffer.Buffer<Types.PublicUserProfile>(users.size());
+    for (profile in users.vals()) {
+      buf.add({
+        id = profile.id;
+        username = profile.username;
+        name = profile.name;
+        role = profile.role;
+        skills = profile.skills;
+        portfolioUrl = profile.portfolioUrl;
+      });
+    };
+    Buffer.toArray(buf);
+  };
+
   // Read-Only Queries
   public query func getUserProfile(userId : Text) : async ?Types.PublicUserProfile {
     getUserProfileInternal(userId);
@@ -513,6 +528,10 @@ actor DeForger {
               getMatchingProjectsInternal(userId);
           };
       };
+  };
+
+  public query func getAllUserProfiles() : async [Types.PublicUserProfile] {
+    getAllUserProfilesInternal();
   };
 
   // HTTP handling
@@ -562,6 +581,20 @@ actor DeForger {
           case ("/get-all-projects") {
             let allProjects = getAllProjectsInternal();
             let blob = to_candid (allProjects);
+            let keys = [];
+            let result = JSON.toText(blob, keys, null);
+            switch (result) {
+              case (#ok(jsonText)) {
+                makeJsonResponse(200, jsonText);
+              };
+              case (#err(msg)) {
+                makeSerializationErrorResponse();
+              };
+            };
+          };
+          case ("/get-all-user-profiles") {
+            let allProfiles = getAllUserProfilesInternal();
+            let blob = to_candid (allProfiles);
             let keys = [];
             let result = JSON.toText(blob, keys, null);
             switch (result) {
