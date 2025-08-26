@@ -19,6 +19,7 @@ import {
   Briefcase,
   Search,
   Wallet,
+  BadgeCent,
 } from "lucide-react";
 
 interface NavbarProps {
@@ -64,13 +65,14 @@ export function Navbar({
       submenu: [
         { name: "Browse Projects", href: "projects" },
         { name: "Create Project", href: "create-project" },
+        { name: "Search People", href: "search-people" },
       ],
     },
     {
-      name: "My Projects",
-      href: "my-projects",
-      icon: Briefcase,
-      description: "Manage Your Projects",
+      name: "RWA Token Exchange",
+      href: "rwa-exchange",
+      icon: BadgeCent,
+      description: "Exchange RWA Tokens",
     },
     {
       name: "Portfolio",

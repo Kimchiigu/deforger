@@ -20,6 +20,7 @@ import { FeaturesPage } from "@/components/features-page"
 import { HowItWorksPage } from "@/components/how-it-works-page"
 import { AboutPage } from "@/components/about-page"
 import { ContactPage } from "@/components/contact-page"
+import { RWAExchangePage } from "@/components/rwa-exchange-page"
 
 type View =
   | "landing"
@@ -28,7 +29,7 @@ type View =
   | "dashboard"
   | "profile"
   | "create-project"
-  | "my-projects"
+  | "rwa-exchange"
   | "portfolio"
   | "features"
   | "how-it-works"
@@ -97,7 +98,12 @@ function HomePageContent() {
           />
         );
       case "profile":
-        return <UserProfilePage onBack={() => setCurrentView("dashboard")} />;
+        return (
+          <UserProfilePage
+            onBack={() => setCurrentView("dashboard")}
+            onNavigate={handleNavigation}
+          />
+        );
       case "create-project":
         return (
           <CreateProjectPage
@@ -105,9 +111,9 @@ function HomePageContent() {
             onCreateProject={handleCreateProject}
           />
         );
-      case "my-projects":
+      case "rwa-exchange":
         return user ? (
-          <MyProjectsPage userId={user.id} onNavigate={handleNavigation} />
+          <RWAExchangePage />
         ) : null;
       case "portfolio":
         return user ? (
